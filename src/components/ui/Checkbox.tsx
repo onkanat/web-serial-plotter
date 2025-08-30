@@ -1,6 +1,6 @@
 import React from 'react'
 
-export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type CheckboxProps = React.InputHTMLAttributes<HTMLInputElement>
 
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox({ className, ...props }, ref) {
   const base = 'accent-blue-600'

@@ -47,13 +47,15 @@ export function useSerial(): UseSerial {
       if (readerRef.current) {
         try {
           await readerRef.current.cancel()
-        } catch {}
+        } catch {
+          // ignore cancel errors
+        }
       }
       readerRef.current = null
       if (state.port && typeof state.port.close === 'function') {
         await state.port.close()
       }
-    } catch (err) {
+    } catch {
       // swallow
     } finally {
       setState((s) => ({ ...s, isConnected: false, port: null, readerLocked: false }))
@@ -96,15 +98,19 @@ export function useSerial(): UseSerial {
               }
             }
           }
-        } catch (err) {
+        } catch {
           // ignore if aborted
         } finally {
           try {
             reader.releaseLock()
-          } catch {}
+          } catch {
+            // ignore
+          }
           try {
             await readableClosed.catch(() => {})
-          } catch {}
+          } catch {
+            // ignore
+          }
           setState((s) => ({ ...s, readerLocked: false }))
         }
       })()

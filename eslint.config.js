@@ -20,4 +20,15 @@ export default tseslint.config([
       globals: globals.browser,
     },
   },
+  {
+    files: ['**/*.test.ts', '**/*.test.tsx'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        describe: true,
+        it: true,
+        expect: true,
+      },
+    },
+  },
 ])

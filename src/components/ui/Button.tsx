@@ -32,7 +32,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   ...props
 }, ref) {
   const ring = variant === 'primary' ? 'var(--accent-hover)' : variant === 'danger' ? 'var(--danger-hover)' : 'var(--control-border)'
-  const cssStyle = { ...(style as React.CSSProperties), ['--ring' as any]: ring }
+  const cssStyle: React.CSSProperties & { ['--ring']?: string } = { ...(style as React.CSSProperties), ['--ring']: ring }
   const content = (
     <span className="inline-flex items-center gap-2">
       {startIcon ? <span className="shrink-0" aria-hidden>{startIcon}</span> : null}

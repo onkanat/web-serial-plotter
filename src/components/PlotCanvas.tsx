@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import type { PlotSnapshot } from '../types/plot'
 
 /**
@@ -35,7 +35,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
   panEndRef.current = onPanEnd
   zoomFactorRef.current = onZoomFactor
 
-  const draw = () => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
@@ -55,7 +55,6 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     ctx.restore()
 
     // Background and theme colors
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getVar = (name: string, fallback: string) => getComputedStyle(document.documentElement).getPropertyValue(name) || fallback
     const plotBg = getVar('--plot-bg', 'rgba(10,10,10,0.9)')
     const plotGrid = getVar('--plot-grid', 'rgba(255,255,255,0.06)')
@@ -143,7 +142,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
 
     // X-axis using stored anchors (one tick+label per anchor)
     {
-      const times = snapshot.getTimes?.() ?? new Float64Array(0)
+      const times = snap.getTimes?.() ?? new Float64Array(0)
       if (times.length >= 2) {
         const rightTime = times[times.length - 1]
         const leftTime = times[0]
@@ -165,8 +164,8 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
           return `${hh}:${mm}:${ss}.${ms}`
         }
 
-        const anchors = snapshot.anchors || []
-        const startTotal = snapshot.windowStartTotal
+        const anchors = snap.anchors || []
+        const startTotal = snap.windowStartTotal
         for (let i = 0; i < anchors.length; i++) {
           const a = anchors[i]
           const relIdx = a.total - startTotal
@@ -204,7 +203,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
       ctx.stroke()
     })
     ctx.restore()
-  }
+  }, [showYAxis, timeMode])
 
   // Resize to DPR changes and container size
   useEffect(() => {
@@ -228,9 +227,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     ro.observe(canvas)
     resize()
     return () => ro.disconnect()
-    // mount only
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [draw])
 
   // Grab-to-pan & pinch-to-zoom handlers (stable across renders)
   useEffect(() => {
@@ -331,18 +328,18 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
 
     const cleanupDrag = () => {
       window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', endDrag as any)
-      window.removeEventListener('pointercancel', endDrag as any)
-      window.removeEventListener('blur', onWindowBlur as any)
+      window.removeEventListener('pointerup', endDrag as unknown as EventListener)
+      window.removeEventListener('pointercancel', endDrag as unknown as EventListener)
+      window.removeEventListener('blur', onWindowBlur as unknown as EventListener)
       window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', endDrag as any)
+      window.removeEventListener('mouseup', endDrag as unknown as EventListener)
       canvas.removeEventListener('pointermove', onPointerMove)
-      canvas.removeEventListener('pointerup', endDrag as any)
-      canvas.removeEventListener('lostpointercapture', onLostCapture as any)
-      canvas.removeEventListener('pointerleave', onCanvasLeave as any)
-      canvas.removeEventListener('wheel', onWheel as any)
+      canvas.removeEventListener('pointerup', endDrag as unknown as EventListener)
+      canvas.removeEventListener('lostpointercapture', onLostCapture as unknown as EventListener)
+      canvas.removeEventListener('pointerleave', onCanvasLeave as unknown as EventListener)
+      canvas.removeEventListener('wheel', onWheel as unknown as EventListener)
       if (activePointerId != null) {
-        try { canvas.releasePointerCapture(activePointerId) } catch {}
+        try { canvas.releasePointerCapture(activePointerId) } catch { /* ignore */ }
         activePointerId = null
       }
       pointers.clear()
@@ -388,17 +385,17 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
         vEst = 0
         lastTs = e.timeStamp || performance.now()
         updateCursor()
-        try { canvas.setPointerCapture(e.pointerId) } catch {}
+        try { canvas.setPointerCapture(e.pointerId) } catch { /* ignore */ }
         window.addEventListener('pointermove', onPointerMove, { passive: false })
-        window.addEventListener('pointerup', endDrag as any, { passive: false })
-        window.addEventListener('pointercancel', endDrag as any, { passive: false })
-        window.addEventListener('blur', onWindowBlur as any)
+        window.addEventListener('pointerup', endDrag as unknown as EventListener, { passive: false })
+        window.addEventListener('pointercancel', endDrag as unknown as EventListener, { passive: false })
+        window.addEventListener('blur', onWindowBlur as unknown as EventListener)
         canvas.addEventListener('pointermove', onPointerMove, { passive: false })
-        canvas.addEventListener('pointerup', endDrag as any, { passive: false })
-        canvas.addEventListener('lostpointercapture', onLostCapture as any)
-        canvas.addEventListener('pointerleave', onCanvasLeave as any)
+        canvas.addEventListener('pointerup', endDrag as unknown as EventListener, { passive: false })
+        canvas.addEventListener('lostpointercapture', onLostCapture as unknown as EventListener)
+        canvas.addEventListener('pointerleave', onCanvasLeave as unknown as EventListener)
         window.addEventListener('mousemove', onMouseMove, { passive: false })
-        window.addEventListener('mouseup', endDrag as any, { passive: false })
+        window.addEventListener('mouseup', endDrag as unknown as EventListener, { passive: false })
         if (panStartRef.current) panStartRef.current()
       }
       e.preventDefault()
@@ -424,34 +421,32 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
 
     canvas.addEventListener('pointerdown', onPointerDown, { passive: false })
     canvas.addEventListener('pointermove', onPointerMove, { passive: false })
-    canvas.addEventListener('wheel', onWheel as any, { passive: false })
-    window.addEventListener('wheel', onWheelGlobal as any, { passive: false, capture: true })
+    canvas.addEventListener('wheel', onWheel as unknown as EventListener, { passive: false })
+    window.addEventListener('wheel', onWheelGlobal as unknown as EventListener, { passive: false, capture: true })
     updateCursor()
     return () => {
-      canvas.removeEventListener('pointerdown', onPointerDown as any)
+      canvas.removeEventListener('pointerdown', onPointerDown as unknown as EventListener)
       cleanupDrag()
-      canvas.removeEventListener('wheel', onWheel as any)
-      window.removeEventListener('wheel', onWheelGlobal as any, true as any)
+      canvas.removeEventListener('wheel', onWheel as unknown as EventListener)
+      window.removeEventListener('wheel', onWheelGlobal as unknown as EventListener, true as unknown as AddEventListenerOptions)
       canvas.style.cursor = ''
       canvas.style.touchAction = ''
     }
-    // mount only
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [draw])
 
   // Redraw on snapshot or scale changes
   useEffect(() => {
     snapshotRef.current = snapshot
     yOverrideRef.current = yOverride
     draw()
-  }, [snapshot, yOverride])
+  }, [snapshot, yOverride, draw])
 
   // Redraw when theme class toggles
   useEffect(() => {
     const observer = new MutationObserver(() => draw())
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
     return () => observer.disconnect()
-  }, [])
+  }, [draw])
 
   useImperativeHandle(ref, () => ({
     exportPNG: (opts) => {

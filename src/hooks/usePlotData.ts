@@ -61,7 +61,7 @@ export function usePlotData(capacity = 4000): UsePlotData {
     }
   }, [])
 
-  const parseLine = (line: string): number[] | null => {
+  const parseLine = useCallback((line: string): number[] | null => {
     if (!line) return null
     if (line.trim().startsWith('#')) {
       const raw = line.replace(/^\s*#+\s*/, '')
@@ -86,7 +86,7 @@ export function usePlotData(capacity = 4000): UsePlotData {
     }
     if (nums.length === 0) return null
     return nums
-  }
+  }, [ensureSeries])
 
   const pushLine = useCallback((line: string) => {
     const nums = parseLine(line)
@@ -99,7 +99,7 @@ export function usePlotData(capacity = 4000): UsePlotData {
     }
     writeIndexRef.current = (idx + 1) % cap
     lengthRef.current = Math.min(lengthRef.current + 1, cap)
-  }, [ensureSeries])
+  }, [ensureSeries, parseLine])
 
   const reset = useCallback(() => {
     writeIndexRef.current = 0

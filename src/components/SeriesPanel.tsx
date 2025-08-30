@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useDataStore } from '../store/dataStore'
 import Input from './ui/Input'
 import ColorInput from './ui/ColorInput'

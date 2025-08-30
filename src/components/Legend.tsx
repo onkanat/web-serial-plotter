@@ -22,7 +22,7 @@ export function Legend() {
       setOrigName(editing.name)
       setOrigColor(editing.color)
     }
-  }, [editing?.id])
+  }, [editing])
 
   return (
     <div className="pointer-events-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur rounded-md border border-gray-300 dark:border-neutral-700 p-2 max-w-xs">

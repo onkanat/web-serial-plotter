@@ -16,7 +16,7 @@ export function GeneratorPanel({ onEmitLine, disabled }: Props) {
     <div className="flex items-center gap-2">
       <Select
         value={gen.config.mode}
-        onChange={(e) => gen.setConfig({ mode: e.target.value as any })}
+        onChange={(e) => gen.setConfig({ mode: e.target.value as 'sine3' | 'noise' | 'ramp' })}
         disabled={disabled || gen.isRunning}
       >
         <option value="sine3">Sine (phased)</option>

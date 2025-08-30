@@ -52,7 +52,7 @@ function computeStats(values: Float32Array, numBins = 24): SeriesStats {
   return { min, max, mean, median, stddev, bins }
 }
 
-export function StatsPanel({ snapshot, onScreenshot }: Props) {
+export function StatsPanel({ snapshot }: Props) {
   return (
     <div className="mt-2 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
       {snapshot.series.map((s) => {
