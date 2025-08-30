@@ -1,5 +1,14 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import type { PlotSnapshot } from '../types/plot'
+import { 
+  calculateChartBounds, 
+  getThemeColors, 
+  calculateYAxisTicks,
+  drawBackgroundAndGrid,
+  drawYAxis,
+  drawXAxis,
+  drawSeries
+} from '../utils/plotRendering'
 
 /**
  * DPR-aware canvas renderer for the plot area.
@@ -48,161 +57,28 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     const width = canvas.clientWidth
     const height = canvas.clientHeight
 
-    // Robust clear: reset transform and clear full backing store to avoid 1px artifacts
-    ctx.save()
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.restore()
+    // Calculate layout and theme
+    const chart = calculateChartBounds(width, height, showYAxis)
+    const theme = getThemeColors()
 
-    // Background and theme colors
-    const getVar = (name: string, fallback: string) => getComputedStyle(document.documentElement).getPropertyValue(name) || fallback
-    const plotBg = getVar('--plot-bg', 'rgba(10,10,10,0.9)')
-    const plotGrid = getVar('--plot-grid', 'rgba(255,255,255,0.06)')
-    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text') || '#e5e5e5'
-
-    // Fill background with current transform so coordinates are CSS pixels
-    ctx.fillStyle = plotBg
-    ctx.fillRect(0, 0, width, height)
-
-    // Chart layout
-    const leftAxis = showYAxis ? 44 : 8
-    const rightPadding = 8
-    const topPadding = 8
-    const bottomPadding = 26
-    const chartX = leftAxis
-    const chartY = topPadding
-    const chartW = Math.max(1, width - leftAxis - rightPadding)
-    const chartH = Math.max(1, height - topPadding - bottomPadding)
-
-    // Vertical grid (fixed every 80px for readability)
-    ctx.strokeStyle = plotGrid
-    ctx.lineWidth = 1
-    for (let x = chartX; x <= chartX + chartW; x += 80) {
-      ctx.beginPath()
-      ctx.moveTo(x + 0.5, chartY)
-      ctx.lineTo(x + 0.5, chartY + chartH)
-      ctx.stroke()
+    if (length === 0) {
+      // Just draw background and grid for empty state
+      drawBackgroundAndGrid(ctx, width, height, chart, theme, [], yMin, yMax)
+      return
     }
 
-    if (length === 0) return
+    // Calculate Y-axis ticks
+    const { ticks: yTicks, step } = calculateYAxisTicks(yMin, yMax)
 
-    const xScale = length > 1 ? chartW / (length - 1) : 1
-    const yScale = (yMax - yMin) !== 0 ? chartH / (yMax - yMin) : 1
-
-    // Y-axis nice ticks
-    const approxTicks = 6
-    const range = yMax - yMin
-    const niceNum = (rng: number, round: boolean) => {
-      const exp = Math.floor(Math.log10(rng))
-      const f = rng / Math.pow(10, exp)
-      let nf
-      if (round) {
-        if (f < 1.5) nf = 1
-        else if (f < 3) nf = 2
-        else if (f < 7) nf = 5
-        else nf = 10
-      } else {
-        if (f <= 1) nf = 1
-        else if (f <= 2) nf = 2
-        else if (f <= 5) nf = 5
-        else nf = 10
-      }
-      return nf * Math.pow(10, exp)
-    }
-    const step = niceNum(range / approxTicks, true)
-    const tickMin = Math.ceil(yMin / step) * step
-    const tickMax = Math.floor(yMax / step) * step
-
-    // Horizontal grid
-    for (let v = tickMin; v <= tickMax + 1e-9; v += step) {
-      const y = chartY + chartH - (v - yMin) * yScale
-      ctx.beginPath()
-      ctx.moveTo(chartX, y + 0.5)
-      ctx.lineTo(chartX + chartW, y + 0.5)
-      ctx.stroke()
-    }
-
-    // Y-axis line & labels
+    // Render all chart elements using focused utility functions
+    drawBackgroundAndGrid(ctx, width, height, chart, theme, yTicks, yMin, yMax)
+    
     if (showYAxis) {
-      ctx.strokeStyle = plotGrid
-      ctx.beginPath()
-      ctx.moveTo(chartX + 0.5, chartY)
-      ctx.lineTo(chartX + 0.5, chartY + chartH)
-      ctx.stroke()
-
-      ctx.fillStyle = textColor.trim() || '#e5e5e5'
-      ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial'
-      ctx.textAlign = 'right'
-      ctx.textBaseline = 'middle'
-      for (let v = tickMin; v <= tickMax + 1e-9; v += step) {
-        const y = chartY + chartH - (v - yMin) * yScale
-        ctx.fillText(v.toFixed(Math.max(0, -Math.floor(Math.log10(step)))) as unknown as string, chartX - 6, y)
-      }
+      drawYAxis(ctx, chart, theme, yTicks, step, yMin, yMax)
     }
-
-    // X-axis using stored anchors (one tick+label per anchor)
-    {
-      const times = snap.getTimes?.() ?? new Float64Array(0)
-      if (times.length >= 2) {
-        const rightTime = times[times.length - 1]
-        const leftTime = times[0]
-        const windowMs = Math.max(1, rightTime - leftTime)
-
-        ctx.strokeStyle = plotGrid
-        ctx.fillStyle = textColor.trim() || '#e5e5e5'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'top'
-        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial'
-
-        const formatAbs = (ts: number) => {
-          const d = new Date(ts)
-          const hh = d.getHours().toString().padStart(2, '0')
-          const mm = d.getMinutes().toString().padStart(2, '0')
-          const ss = d.getSeconds().toString().padStart(2, '0')
-          const ms = d.getMilliseconds().toString().padStart(3, '0')
-          if (windowMs >= 60_000) return `${hh}:${mm}:${ss}`
-          return `${hh}:${mm}:${ss}.${ms}`
-        }
-
-        const anchors = snap.anchors || []
-        const startTotal = snap.windowStartTotal
-        for (let i = 0; i < anchors.length; i++) {
-          const a = anchors[i]
-          const relIdx = a.total - startTotal
-          if (relIdx < 0 || relIdx >= length) continue
-          const x = Math.round(chartX + relIdx * xScale) + 0.5
-          ctx.beginPath()
-          ctx.moveTo(x + 0.5, chartY + chartH)
-          ctx.lineTo(x + 0.5, chartY + chartH + 4)
-          ctx.stroke()
-          const label = timeMode === 'absolute'
-            ? formatAbs(a.time)
-            : (() => { const dt = rightTime - a.time; const secs = dt / 1000; return secs >= 1 ? `${secs.toFixed((secs >= 10 || windowMs >= 60_000) ? 0 : 1)}s` : `${Math.round(secs * 1000)}ms` })()
-          ctx.fillText(label, x, chartY + chartH + 6)
-        }
-      }
-    }
-
-    // Series (clip to chart rect to avoid edge bleed)
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(chartX, chartY, chartW, chartH)
-    ctx.clip()
-    snap.series.forEach((s) => {
-      const view = snap.getSeriesData(s.id)
-      if (!view || view.length === 0) return
-      ctx.beginPath()
-      ctx.strokeStyle = s.color
-      ctx.lineWidth = 1.5
-      for (let i = 0; i < view.length; i++) {
-        const x = chartX + i * xScale
-        const y = chartY + chartH - (view[i] - yMin) * yScale
-        if (i === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-      ctx.stroke()
-    })
-    ctx.restore()
+    
+    drawXAxis(ctx, chart, theme, snap, timeMode)
+    drawSeries(ctx, chart, snap, yMin, yMax)
   }, [showYAxis, timeMode])
 
   // Resize to DPR changes and container size

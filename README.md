@@ -14,18 +14,44 @@ Real‑time, beautiful, and zero‑friction plotting for any serial device — r
 
 ## Status
 
-This is an active work‑in‑progress. We’re building the core experience and polishing the UI to be production‑quality. Contributions and early feedback are very welcome.
+**Production Ready** - Core functionality is complete and stable. The application successfully handles real-time serial data plotting with professional-grade performance and user experience.
 
-## Key Features (planned)
+## Current Features
 
-- Multi‑series real‑time plotting (CSV/space‑separated values per line)
-- Autoscaling, pan/zoom, pause/freeze, and cursors
-- Channel management, renaming, and color theming
-- Rolling buffer with smart downsampling for smooth 60 FPS rendering
-- Data inspectors: min/max/avg, deltas, peak hold
-- Import/export sessions, CSV export, and screenshot capture
-- Configurable baud rate and line protocol helpers
-- Optional binary framing and checksum helpers
+✅ **Real-time Plotting**
+- Multi-series plotting from CSV/space/tab-separated serial data
+- Automatic series detection from header lines (e.g., `# time ax ay az`)
+- High-performance ring buffer with configurable history (up to 12K+ points)
+- Smooth 60 FPS rendering with HTML5 Canvas
+
+✅ **Interactive Controls**
+- Mouse/touch pan and zoom with momentum scrolling
+- Pinch-to-zoom support on touch devices
+- Ctrl+wheel zoom for precise control
+- Play/pause (freeze) functionality
+- Auto-scaling Y-axis with manual override
+
+✅ **Data Analysis**
+- Real-time statistics: min/max/mean/median/stddev
+- Live histograms for each data series
+- Configurable time display (absolute/relative)
+- Sample rate monitoring
+
+✅ **Channel Management**
+- Series renaming and color customization
+- Interactive legend with click-to-edit
+- Up to 8 default color themes
+
+✅ **Export & Testing**
+- PNG screenshot export (plot + individual stats cards)
+- Built-in signal generator for testing (sine, noise, ramp)
+- Configurable sample rates and amplitudes
+
+✅ **User Experience**
+- Dark/light theme toggle
+- Responsive design
+- Browser-based (no drivers required)
+- Real-time connection status
 
 ## Quick Start (development)
 
@@ -43,26 +69,42 @@ npm run dev
 
 Open the printed local URL (Vite default is `http://localhost:5173`).
 
-## Using Web Serial (in the app)
+## Using the Application
 
-1. Click “Connect” and choose your serial device when prompted.
-2. Select a baud rate that matches your device.
-3. Start streaming lines of numbers (comma, space, or tab‑separated). Each line becomes a point for one or more series.
-4. Use the controls to zoom, pause, or export as needed.
+### Serial Device Connection
+1. Click **"Connect"** and choose your serial device when prompted
+2. Select the appropriate **baud rate** for your device
+3. Start streaming data - the app supports CSV, space, or tab-separated values
 
-Example device output:
-
+### Data Format
+Your device should send lines of numeric data:
 ```text
+# Optional header defines series names
 # time(ms), ax, ay, az
 0, 0.01, 0.02, 0.98
 10, 0.02, 0.01, 0.99
 20, 0.03, 0.00, 1.01
 ```
 
-Notes:
+### Interactive Controls
+- **Pan**: Click and drag on the plot
+- **Zoom**: Ctrl+wheel or pinch on touch devices
+- **Freeze**: Click pause button to stop live updates
+- **Screenshot**: Use camera button to export PNG images
+- **Series**: Click legend entries to edit names and colors
 
-- If no timestamp is present, the app will timestamp on receipt.
-- Labels starting with `#` may be used as hints for channel names (planned).
+### Built-in Signal Generator
+For testing without hardware:
+1. Use the **generator panel** in the header
+2. Choose signal type: Sine (phased), Noise, or Ramp  
+3. Adjust sample rate and click **"Start"**
+4. Data will appear as if from a real device
+
+### Statistics Panel
+The bottom panel shows real-time analytics:
+- **Statistics**: min/max/mean/median/standard deviation
+- **Histogram**: Live distribution visualization
+- **Export**: Individual screenshot per data series
 
 ## Browser Support
 
@@ -86,34 +128,53 @@ Firefox and Safari do not support Web Serial at this time. On desktop, use Chrom
 
 ## Scripts
 
-- `npm run dev` – Start the dev server
+- `npm run dev` – Start the development server
 - `npm run build` – Type‑check and build for production
 - `npm run preview` – Preview the production build locally
-- `npm run lint` – Run ESLint
+- `npm run lint` – Run ESLint code quality checks
+- `npm run typecheck` – Run TypeScript type checking
+- `npm test` – Run the test suite
 
 ## Project Structure
 
 ```
 .
 ├─ src/
-│  ├─ main.tsx        # App entry
-│  ├─ App.tsx         # Root component and routing
-│  ├─ index.css       # Tailwind entry
-│  └─ assets/         # Static assets
-├─ public/            # Static public files
-├─ vite.config.ts     # Vite config
-└─ eslint.config.js   # ESLint config
+│  ├─ main.tsx              # App entry point
+│  ├─ App.tsx               # Main application component
+│  ├─ components/           # React components
+│  │  ├─ PlotCanvas.tsx     # High-performance canvas renderer
+│  │  ├─ Header.tsx         # Connection controls
+│  │  ├─ Legend.tsx         # Interactive series legend
+│  │  ├─ StatsPanel.tsx     # Real-time statistics
+│  │  ├─ GeneratorPanel.tsx # Test signal generator
+│  │  └─ ui/               # Reusable UI components
+│  ├─ hooks/               # Custom React hooks
+│  │  ├─ useSerial.ts      # Web Serial API integration
+│  │  ├─ useZoomControls.ts # Zoom interaction logic
+│  │  └─ useMomentumScrolling.ts # Physics-based scrolling
+│  ├─ store/               # Data management
+│  │  ├─ RingStore.ts      # High-performance ring buffer
+│  │  └─ dataStore.tsx     # React store integration
+│  ├─ utils/               # Utility functions
+│  │  ├─ coordinates.ts    # Coordinate transformations
+│  │  └─ plotRendering.ts  # Canvas rendering utilities
+│  └─ types/               # TypeScript definitions
+├─ public/                 # Static assets
+├─ vite.config.ts          # Build configuration
+└─ eslint.config.js        # Code quality rules
 ```
 
 ## Roadmap
 
-- First‑class device setup flow (port + baud + presets)
-- High‑performance canvas/WebGL renderer with adaptive downsampling
-- Rich interactions: pan/zoom, cursors, stats overlays, peak markers
-- Channel management UI and theming
-- Session save/load, CSV export, and screenshots
-- Binary protocol helpers (CBOR/SLIP/COBS) and checksum tooling
-- Accessibility and keyboard navigation
+**Planned Enhancements:**
+- CSV data export functionality
+- Session save/load (plot configurations)
+- Binary protocol support (CBOR/SLIP/COBS)
+- Cursor/crosshair tools for precise measurements
+- Advanced data processing filters
+- Keyboard navigation and accessibility improvements
+- Multiple device connection support
 
 ## Contributing
 
@@ -121,5 +182,7 @@ Ideas, issues, and pull requests are welcome. If you’re testing with specific 
 
 ## License
 
-TBD.
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
+
+**Summary**: This is free and open-source software. You can redistribute and modify it under the GPL v3 terms, ensuring it remains free software for all users.
 

@@ -12,6 +12,9 @@ import StatsPanel from './components/StatsPanel'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSerial } from './hooks/useSerial'
 import { useDataStore } from './store/dataStore'
+import { useZoomControls } from './hooks/useZoomControls'
+import { useMomentumScrolling } from './hooks/useMomentumScrolling'
+import { calculateDataPosition } from './utils/coordinates'
 import Legend from './components/Legend'
 import { CameraIcon, PauseIcon, PlayIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon } from '@heroicons/react/24/outline'
 import * as htmlToImage from 'html-to-image'
@@ -30,46 +33,25 @@ function App() {
   const freezeBaseTotalRef = useRef(0)
   const [timeMode, setTimeMode] = useState<'absolute' | 'relative'>('absolute')
 
-  // Momentum/inertial pan state
-  const velocityRef = useRef(0) // samples per ms
-  const lastPanTsRef = useRef(0)
-  const momentumIdRef = useRef<number | null>(null)
+  // Momentum scrolling hook
+  const { stopMomentum, startMomentum, updateVelocity, setVelocity } = useMomentumScrolling({
+    store,
+    frozen,
+    freezeBaseTotalRef,
+    windowSizeInput,
+    setScrollOffsetInput,
+  })
 
-  const stopMomentum = () => {
-    if (momentumIdRef.current != null) {
-      cancelAnimationFrame(momentumIdRef.current)
-      momentumIdRef.current = null
-    }
-    velocityRef.current = 0
-    lastPanTsRef.current = 0
-  }
-
-  const startMomentum = () => {
-    if (Math.abs(velocityRef.current) < 0.005) return
-    const step = (ts: number) => {
-      const last = lastPanTsRef.current || ts
-      const dt = Math.max(1, ts - last)
-      lastPanTsRef.current = ts
-      // Exponential decay friction (~0.95 per 16.7ms)
-      velocityRef.current *= Math.pow(0.95, dt / 16.7)
-      const v = velocityRef.current
-      if (Math.abs(v) < 0.005) { stopMomentum(); return }
-      setScrollOffsetInput((prev) => {
-        const current = Math.floor(Number(prev) || 0)
-        const nextRaw = current + v * dt
-        const length = Math.max(1, Math.floor(Number(windowSizeInput) || 0))
-        const len = store.getLength()
-        const maxScroll = Math.max(0, len - length)
-        const deltaSinceFreeze = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-        const minScroll = frozen ? -deltaSinceFreeze : 0
-        const next = Math.max(minScroll, Math.min(maxScroll, Math.round(nextRaw)))
-        return String(next)
-      })
-      momentumIdRef.current = requestAnimationFrame(step)
-    }
-    lastPanTsRef.current = performance.now()
-    momentumIdRef.current = requestAnimationFrame(step)
-  }
+  // Zoom controls hook
+  const { zoomByFactor, zoomIn, zoomOut } = useZoomControls({
+    store,
+    frozen,
+    freezeBaseTotalRef,
+    scrollOffsetInput,
+    setScrollOffsetInput,
+    setWindowSizeInput,
+    stopMomentum,
+  })
 
   const handleIncomingLine = useCallback((line: string) => {
     setLastLine(line)
@@ -199,8 +181,7 @@ function App() {
             const uiStartRaw = Math.floor(Number(scrollOffsetInput) || 0)
             const length = Math.max(1, Math.floor(Number(windowSizeInput) || 0))
             const delta = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-            // Allow negative uiStart while frozen to pan towards live
-            const startFromNewest = Math.max(0, uiStartRaw + delta)
+            const startFromNewest = calculateDataPosition({ uiStart: uiStartRaw, delta, frozen })
             const snap = store.getWindow({ startFromNewest, length })
             return (
               <div className="relative w-full h-full" ref={plotContainerRef}>
@@ -220,14 +201,9 @@ function App() {
                       freezeBaseTotalRef.current = store.getTotal()
                       setFrozen(true)
                     }
-                    lastPanTsRef.current = performance.now()
                   }}
                   onPanDelta={(delta) => {
-                    const now = performance.now()
-                    const dt = Math.max(1, now - (lastPanTsRef.current || now))
-                    lastPanTsRef.current = now
-                    const instV = delta / dt
-                    velocityRef.current = 0.8 * velocityRef.current + 0.2 * instV
+                    updateVelocity(delta, performance.now())
                     setScrollOffsetInput((prev) => {
                       const current = Math.floor(Number(prev) || 0)
                       const nextRaw = current + delta
@@ -241,32 +217,10 @@ function App() {
                     })
                   }}
                   onPanEnd={(endV) => {
-                    const capped = Math.max(-1, Math.min(1, endV))
-                    velocityRef.current = capped
-                    lastPanTsRef.current = performance.now()
+                    setVelocity(endV)
                     startMomentum()
                   }}
-                  onZoomFactor={(factor) => {
-                    // Maintain center while zooming
-                    setWindowSizeInput((prev) => {
-                      const currentLen = Math.max(1, Math.floor(Number(prev) || 0))
-                      const desired = Math.round(currentLen / Math.max(0.5, Math.min(2, factor)))
-                      const lenTotal = store.getLength()
-                      const clamped = Math.max(10, Math.min(lenTotal, desired))
-                      // Adjust scroll so center stays put
-                      const uiStart = Math.floor(Number(scrollOffsetInput) || 0)
-                      const delta = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-                      const startFromNewest = Math.max(0, uiStart + delta)
-                      const currentCenterFromNewest = startFromNewest + Math.floor(currentLen / 2)
-                      const newStartFromNewest = Math.max(0, currentCenterFromNewest - Math.floor(clamped / 2))
-                      const newUiStart = newStartFromNewest - delta
-                      const maxScroll = Math.max(0, lenTotal - clamped)
-                      const minScroll = frozen ? -delta : 0
-                      const finalScroll = Math.max(minScroll, Math.min(maxScroll, newUiStart))
-                      setScrollOffsetInput(String(finalScroll))
-                      return String(clamped)
-                    })
-                  }}
+                  onZoomFactor={zoomByFactor}
                 />
                 {/* Tools overlay top-right */}
                 <div className="absolute top-2 right-2 flex items-center gap-2 pointer-events-auto" ref={toolsRef}>
@@ -286,48 +240,10 @@ function App() {
                       <PauseIcon className="w-5 h-5" />
                     )}
                   </Button>
-                  <Button size="sm" variant="neutral" aria-label="Zoom in" title="Zoom in" onClick={() => {
-                    stopMomentum()
-                    setWindowSizeInput((prev) => {
-                      const currentLen = Math.max(1, Math.floor(Number(prev) || 0))
-                      const desired = Math.round(currentLen / 1.25)
-                      const lenTotal = store.getLength()
-                      const clamped = Math.max(10, Math.min(lenTotal, desired))
-                      const uiStart = Math.floor(Number(scrollOffsetInput) || 0)
-                      const delta = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-                      const startFromNewest = Math.max(0, uiStart + delta)
-                      const currentCenterFromNewest = startFromNewest + Math.floor(currentLen / 2)
-                      const newStartFromNewest = Math.max(0, currentCenterFromNewest - Math.floor(clamped / 2))
-                      const newUiStart = newStartFromNewest - delta
-                      const maxScroll = Math.max(0, lenTotal - clamped)
-                      const minScroll = frozen ? -delta : 0
-                      const finalScroll = Math.max(minScroll, Math.min(maxScroll, newUiStart))
-                      setScrollOffsetInput(String(finalScroll))
-                      return String(clamped)
-                    })
-                  }}>
+                  <Button size="sm" variant="neutral" aria-label="Zoom in" title="Zoom in" onClick={zoomIn}>
                     <MagnifyingGlassPlusIcon className="w-5 h-5" />
                   </Button>
-                  <Button size="sm" variant="neutral" aria-label="Zoom out" title="Zoom out" onClick={() => {
-                    stopMomentum()
-                    setWindowSizeInput((prev) => {
-                      const currentLen = Math.max(1, Math.floor(Number(prev) || 0))
-                      const desired = Math.round(currentLen * 1.25)
-                      const lenTotal = store.getLength()
-                      const clamped = Math.max(10, Math.min(lenTotal, desired))
-                      const uiStart = Math.floor(Number(scrollOffsetInput) || 0)
-                      const delta = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-                      const startFromNewest = Math.max(0, uiStart + delta)
-                      const currentCenterFromNewest = startFromNewest + Math.floor(currentLen / 2)
-                      const newStartFromNewest = Math.max(0, currentCenterFromNewest - Math.floor(clamped / 2))
-                      const newUiStart = newStartFromNewest - delta
-                      const maxScroll = Math.max(0, lenTotal - clamped)
-                      const minScroll = frozen ? -delta : 0
-                      const finalScroll = Math.max(minScroll, Math.min(maxScroll, newUiStart))
-                      setScrollOffsetInput(String(finalScroll))
-                      return String(clamped)
-                    })
-                  }}>
+                  <Button size="sm" variant="neutral" aria-label="Zoom out" title="Zoom out" onClick={zoomOut}>
                     <MagnifyingGlassMinusIcon className="w-5 h-5" />
                   </Button>
                   <Button size="sm" variant="neutral" aria-label="Save PNG" title="Save PNG" onClick={async () => {
@@ -380,7 +296,7 @@ function App() {
               const uiStartRaw = Math.floor(Number(scrollOffsetInput) || 0)
               const length = Math.max(1, Math.floor(Number(windowSizeInput) || 0))
               const delta = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-              const startFromNewest = Math.max(0, uiStartRaw + delta)
+              const startFromNewest = calculateDataPosition({ uiStart: uiStartRaw, delta, frozen })
               const snap = store.getWindow({ startFromNewest, length })
               if (snap.length === 0) return null
               const savePng = () => {
