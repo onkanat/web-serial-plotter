@@ -1,3 +1,5 @@
+[![CI](https://github.com/atomic14/web-serial-plotter/actions/workflows/ci.yml/badge.svg)](https://github.com/atomic14/web-serial-plotter/actions/workflows/ci.yml)
+
 # Web Serial Plotter
 
 Real‑time, beautiful, and zero‑friction plotting for any serial device — right in your browser.
