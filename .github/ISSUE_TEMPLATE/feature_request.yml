@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest an idea or improvement for the Web Serial Plotter
+title: "[Feature]: "
+labels: [enhancement, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please share the context of the problem and the solution you have in mind.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What problem does this feature solve? Who benefits?
+      placeholder: I'm trying to accomplish X, but Y makes it difficult...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature or change you'd like to see.
+      placeholder: It would help if the app could...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered or tried any workarounds?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area of the app
+      options:
+        - Plot rendering
+        - Data parsing / serial
+        - UI / UX
+        - Stats panel
+        - Legend & series management
+        - Scale/axes controls
+        - Other / Not sure
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Willingness to contribute
+      options:
+        - label: I'd be willing to submit a PR for this
+        - label: I can help test and provide feedback
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context, screenshots or mockups
+      description: Drag-and-drop images or link to a sketch/mockup.
+
+

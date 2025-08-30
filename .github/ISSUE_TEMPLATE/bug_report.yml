@@ -1,0 +1,133 @@
+name: Bug report
+description: Report a problem with the Web Serial Plotter
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill out as much as you can.
+        Note: Only browsers that implement the Web Serial API are supported (Chromium-based browsers like Chrome and Edge). Safari and Firefox are not supported.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Please confirm
+      options:
+        - label: I searched existing issues and discussions to avoid duplicates
+          required: true
+        - label: My browser supports the Web Serial API (e.g., Chrome, Edge)
+          required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: Only browsers with Web Serial API support are supported.
+      placeholder: e.g., Chrome 127.0.x, Edge 126.0.x
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - ChromeOS
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version
+      placeholder: e.g., macOS 14.6, Windows 11 23H2, Ubuntu 22.04
+
+  - type: dropdown
+    id: data_source
+    attributes:
+      label: Data source
+      options:
+        - Web Serial device
+        - Built-in generator
+        - Other/Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: serial_settings
+    attributes:
+      label: Serial settings
+      description: Baud rate and format
+      placeholder: e.g., 115200 baud, CSV (comma), 3 series
+
+  - type: textarea
+    id: problem_description
+    attributes:
+      label: Describe the problem
+      description: What happened? Be concise and clear.
+      placeholder: A clear description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include minimal steps and settings so we can reproduce the issue.
+      placeholder: |
+        1. Connect device ...
+        2. Set baud rate to ...
+        3. Click Start
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen?
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual behavior
+      placeholder: What actually happened?
+
+  - type: textarea
+    id: serial_output_sample
+    attributes:
+      label: Serial output sample
+      description: Include a representative sample (remove sensitive data).
+      render: text
+      placeholder: |
+        162,0.12,10
+        163,0.10,11
+    validations:
+      required: true
+
+  - type: textarea
+    id: console_logs
+    attributes:
+      label: Browser console logs
+      description: Copy relevant errors from DevTools Console.
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or screen recording
+      description: Drag-and-drop images or paste a link.
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Anything else that might help us diagnose the issue.
+
+

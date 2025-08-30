@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Web Serial API browser support
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Serial#browser_compatibility
+    about: Check whether your browser supports the Web Serial API.
+
