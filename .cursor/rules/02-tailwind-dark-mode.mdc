@@ -1,0 +1,15 @@
+---
+globs: *.ts,*.tsx,*.css
+---
+# Tailwind Dark Mode & Theming
+
+- Manual dark mode is enabled via Tailwind custom variant:
+  - See [src/App.css](mdc:src/App.css): `@custom-variant dark (&:where(.dark, .dark *));`
+  - Toggle by adding/removing `dark` class on `html` (`document.documentElement`).
+- Prefer Tailwind utilities with `dark:` for component styles:
+  - Buttons: `bg-white text-gray-900 border-gray-300 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700`.
+  - Inputs/selects: same pattern; add `focus:ring-2 focus:ring-blue-500`.
+- Avoid global overrides that force button colors; scope base theming to inputs/selects in [src/index.css](mdc:src/index.css).
+- Canvas colors come from CSS variables (`--plot-bg`, `--plot-grid`) and redraw on `html.class` changes.
+
+Reference: Tailwind docs for manual dark mode selector.
