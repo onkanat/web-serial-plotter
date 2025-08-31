@@ -13,14 +13,13 @@ describe('RingStore', () => {
       const defaultStore = new RingStore()
       expect(defaultStore.getCapacity()).toBe(100000)
       expect(defaultStore.getViewPortSize()).toBe(200)
-      expect(defaultStore.getSeries()).toHaveLength(3)
-      expect(defaultStore.getSeries()[0].name).toBe('S1')
+      expect(defaultStore.getSeries()).toHaveLength(0)
     })
 
     it('should initialize with custom parameters', () => {
       expect(store.getCapacity()).toBe(100)
       expect(store.getViewPortSize()).toBe(10)
-      expect(store.getSeries()).toHaveLength(3)
+      expect(store.getSeries()).toHaveLength(0)
     })
 
     it('should have writeIndex and viewPortCursor at 0', () => {
@@ -35,6 +34,8 @@ describe('RingStore', () => {
 
   describe('Series Management', () => {
     it('should create series with correct IDs and default colors', () => {
+      // Create 3 series by appending data
+      store.append([1, 2, 3])
       const series = store.getSeries()
       expect(series[0]).toEqual({ id: 0, name: 'S1', color: '#60a5fa' })
       expect(series[1]).toEqual({ id: 1, name: 'S2', color: '#f472b6' })
@@ -50,16 +51,19 @@ describe('RingStore', () => {
     })
 
     it('should rename series', () => {
+      store.append([1, 2, 3]) // Create series first
       store.renameSeries(0, 'NewName')
       expect(store.getSeries()[0].name).toBe('NewName')
     })
 
     it('should set series color', () => {
+      store.append([1, 2, 3]) // Create series first
       store.setSeriesColor(0, '#ff0000')
       expect(store.getSeries()[0].color).toBe('#ff0000')
     })
 
     it('should handle invalid series ID for rename', () => {
+      store.append([1, 2, 3]) // Create series first
       const originalName = store.getSeries()[0].name
       store.renameSeries(999, 'InvalidID')
       expect(store.getSeries()[0].name).toBe(originalName)
@@ -73,9 +77,18 @@ describe('RingStore', () => {
       expect(store.getViewPortCursor()).toBe(0)
     })
 
-    it('should reject data with wrong length', () => {
-      store.append([1.0, 2.0]) // Wrong length
-      expect(store.writeIndex).toBe(0)
+    it('should create series to match data length', () => {
+      // Initially has 0 series, append 2 values
+      expect(store.getSeries()).toHaveLength(0)
+      store.append([1.0, 2.0])
+      
+      // Should create 2 series and accept the data
+      expect(store.getSeries()).toHaveLength(2)
+      expect(store.writeIndex).toBe(1)
+      
+      const data = store.getViewPortData()
+      expect(data.getSeriesData(0)[data.getSeriesData(0).length - 1]).toBe(1.0)
+      expect(data.getSeriesData(1)[data.getSeriesData(1).length - 1]).toBe(2.0)
     })
 
     it('should update global min/max on append', () => {
@@ -545,8 +558,8 @@ describe('RingStore', () => {
   describe('Edge Cases and Error Handling', () => {
     it('should handle empty data gracefully', () => {
       const data = store.getViewPortData()
-      // Even with no data, it returns viewport size (10) with NaN values
-      expect(data.getSeriesData(0).length).toBe(10)
+      // With no series, should return empty data
+      expect(data.getSeriesData(0).length).toBe(0)
       expect(data.yMin).toBe(-1)
       expect(data.yMax).toBe(1)
     })

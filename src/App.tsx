@@ -206,9 +206,9 @@ function App() {
                     <CameraIcon className="w-5 h-5" />
                   </Button>
                 </div>
-                {/* Legend overlay left if data present */}
+                {/* Legend overlay bottom-right if data present */}
                 {snap.viewPortSize > 0 && (
-                  <div className="absolute top-2 left-2 pointer-events-auto">
+                  <div className="absolute bottom-8 right-2 pointer-events-auto">
                     <Legend />
                   </div>
                 )}

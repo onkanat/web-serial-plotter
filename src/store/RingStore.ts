@@ -38,7 +38,7 @@ export class RingStore {
   private listeners = new Set<() => void>()
 
   constructor(capacity = 100000, viewPortSize = 200) {
-    this.reset(capacity, viewPortSize, ['S1', 'S2', 'S3'])
+    this.reset(capacity, viewPortSize, [])
   }
 
   subscribe(fn: () => void) {
@@ -134,9 +134,16 @@ export class RingStore {
   }
 
   append(values: number[]) {
-    // TODO - we are receiving new data - we should create a new series - maybe this should be a map of series names to values
-    if (values.length !== this.buffers.length) return
-    for (let i = 0; i < values.length; i++) {
+    if (values.length === 0) return
+    
+    // Auto-adjust series count if needed
+    if (values.length !== this.buffers.length) {
+      this.adjustSeriesCount(values.length)
+    }
+    
+    // Append values - handle case where we have fewer values than series
+    const numValuesToWrite = Math.min(values.length, this.buffers.length)
+    for (let i = 0; i < numValuesToWrite; i++) {
       const value = values[i]
       this.buffers[i][this.writeIndex % this.capacity] = value
       // Update global min/max incrementally
@@ -144,6 +151,11 @@ export class RingStore {
         if (value < this.globalMin) this.globalMin = value
         if (value > this.globalMax) this.globalMax = value
       }
+    }
+    
+    // Fill remaining series with NaN if we have fewer values than series
+    for (let i = numValuesToWrite; i < this.buffers.length; i++) {
+      this.buffers[i][this.writeIndex % this.capacity] = NaN
     }
     const now = Date.now()
     this.times[this.writeIndex % this.capacity] = now
@@ -154,6 +166,35 @@ export class RingStore {
     }
     this.invalidateViewPortCache() // writeIndex changed, possibly viewPortCursor too
     this.emit()
+  }
+
+  /** Dynamically adjust the number of series to match incoming data */
+  private adjustSeriesCount(newCount: number) {
+    if (newCount === this.series.length) return
+    
+    const oldCount = this.series.length
+    
+    if (newCount > oldCount) {
+      // Add new series
+      for (let i = oldCount; i < newCount; i++) {
+        const newSeries: PlotSeries = {
+          id: i,
+          name: `S${i + 1}`,
+          color: DEFAULT_COLORS[i % DEFAULT_COLORS.length]
+        }
+        this.series.push(newSeries)
+        
+        // Create new buffer filled with NaN
+        const newBuffer = new Float32Array(this.capacity).fill(NaN)
+        this.buffers.push(newBuffer)
+      }
+    } else {
+      // Remove excess series
+      this.series = this.series.slice(0, newCount)
+      this.buffers = this.buffers.slice(0, newCount)
+    }
+    
+    this.invalidateViewPortCache()
   }
 
   /** Recompute global min/max across all retained data. */
