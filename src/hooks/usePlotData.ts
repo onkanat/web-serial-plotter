@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
+import { parseDataLine, parseHeaderLine } from '../utils/lineParsing'
+import { computeJoinedView, computeYRangeFromSeries } from '../utils/plotDataHelpers'
 
 export interface PlotSeries {
   id: number
@@ -62,30 +64,17 @@ export function usePlotData(capacity = 4000): UsePlotData {
   }, [])
 
   const parseLine = useCallback((line: string): number[] | null => {
-    if (!line) return null
-    if (line.trim().startsWith('#')) {
-      const raw = line.replace(/^\s*#+\s*/, '')
-      const tokens = raw.split(/[\s,\t]+/).filter(Boolean)
-      if (tokens.length > 0) {
-        setSeriesMeta(() => tokens.map((t, idx) => ({
-          id: idx,
-          name: t,
-          color: DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
-        })))
-        // Ensure buffers match header length
-        ensureSeries(tokens.length)
-      }
+    const header = parseHeaderLine(line)
+    if (header) {
+      setSeriesMeta(() => header.map((t, idx) => ({
+        id: idx,
+        name: t,
+        color: DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
+      })))
+      ensureSeries(header.length)
       return null
     }
-    const parts = line.trim().split(/[\s,\t]+/).filter(Boolean)
-    if (parts.length === 0) return null
-    const nums: number[] = []
-    for (let i = 0; i < parts.length; i++) {
-      const v = Number(parts[i])
-      if (Number.isFinite(v)) nums.push(v)
-    }
-    if (nums.length === 0) return null
-    return nums
+    return parseDataLine(line)
   }, [ensureSeries])
 
   const pushLine = useCallback((line: string) => {
@@ -118,39 +107,19 @@ export function usePlotData(capacity = 4000): UsePlotData {
 
     for (let s = 0; s < buffersRef.current.length; s++) {
       const src = buffersRef.current[s]
-      if (len < cap) {
-        const view = src.subarray(0, len)
-        tempSeriesViewRef.current[s] = view
-        for (let i = 0; i < view.length; i++) {
-          const v = view[i]
-          if (v < yMin) yMin = v
-          if (v > yMax) yMax = v
-        }
-      } else {
-        // Ring buffer wrap → provide contiguous view via copy into temp view
-        const tail = src.subarray(start)
-        const head = src.subarray(0, start)
-        const joined = new Float32Array(len)
-        joined.set(tail, 0)
-        joined.set(head, tail.length)
-        tempSeriesViewRef.current[s] = joined
-        for (let i = 0; i < joined.length; i++) {
-          const v = joined[i]
-          if (v < yMin) yMin = v
-          if (v > yMax) yMax = v
-        }
+      const view = computeJoinedView(src, len, cap, start)
+      tempSeriesViewRef.current[s] = view
+      for (let i = 0; i < view.length; i++) {
+        const v = view[i]
+        if (v < yMin) yMin = v
+        if (v > yMax) yMax = v
       }
     }
 
-    if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
-      yMin = -1
-      yMax = 1
-    }
-    if (yMax === yMin) {
-      const pad = Math.max(1, Math.abs(yMax) * 0.1)
-      yMax += pad
-      yMin -= pad
-    }
+    // Finalize y-range
+    const range = computeYRangeFromSeries([new Float32Array([yMin, yMax])])
+    yMin = range.yMin
+    yMax = range.yMax
 
     return {
       series,
