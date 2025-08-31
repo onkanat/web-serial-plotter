@@ -35,10 +35,19 @@ export function useSignalGenerator(onEmitLine: (line: string) => void): UseSigna
   const tRef = useRef(0)
   const timerRef = useRef<number | null>(null)
   const headerSentRef = useRef(false)
+  // Use ref to ensure interval callback always reads current config
+  const configRef = useRef(config)
 
   const setConfig = useCallback((next: Partial<GeneratorConfig>) => {
-    setConfigState((prev) => ({ ...prev, ...next }))
+    setConfigState((prev) => {
+      const newConfig = { ...prev, ...next }
+      configRef.current = newConfig
+      return newConfig
+    })
   }, [])
+
+  // Keep configRef in sync with config state
+  configRef.current = config
 
   const stop = useCallback(() => {
     if (timerRef.current != null) {
@@ -52,35 +61,38 @@ export function useSignalGenerator(onEmitLine: (line: string) => void): UseSigna
     stop()
     headerSentRef.current = false
     setIsRunning(true)
-    const dt = 1 / config.sampleRateHz
+    
     timerRef.current = window.setInterval(() => {
-      if (!headerSentRef.current && config.includeHeader) {
-        const header = '# ' + config.channelNames.slice(0, config.channels).join(' ')
+      const currentConfig = configRef.current
+      const dt = 1 / currentConfig.sampleRateHz
+      
+      if (!headerSentRef.current && currentConfig.includeHeader) {
+        const header = '# ' + currentConfig.channelNames.slice(0, currentConfig.channels).join(' ')
         onEmitLine(header)
         headerSentRef.current = true
       }
 
       const values: number[] = []
       const t = tRef.current
-      for (let c = 0; c < config.channels; c++) {
+      for (let c = 0; c < currentConfig.channels; c++) {
         let v = 0
-        if (config.mode === 'sine3') {
-          const phase = (c / Math.max(1, config.channels)) * Math.PI * 2
-          v = Math.sin(2 * Math.PI * config.frequencyHz * t + phase) * config.amplitude
-        } else if (config.mode === 'noise') {
-          v = (Math.random() * 2 - 1) * config.amplitude
-        } else if (config.mode === 'ramp') {
-          const period = 1 / Math.max(0.0001, config.frequencyHz)
+        if (currentConfig.mode === 'sine3') {
+          const phase = (c / Math.max(1, currentConfig.channels)) * Math.PI * 2
+          v = Math.sin(2 * Math.PI * currentConfig.frequencyHz * t + phase) * currentConfig.amplitude
+        } else if (currentConfig.mode === 'noise') {
+          v = (Math.random() * 2 - 1) * currentConfig.amplitude
+        } else if (currentConfig.mode === 'ramp') {
+          const period = 1 / Math.max(0.0001, currentConfig.frequencyHz)
           const frac = ((t % period) / period)
-          v = (2 * frac - 1) * config.amplitude
+          v = (2 * frac - 1) * currentConfig.amplitude
         }
         values.push(v)
       }
       tRef.current = t + dt
 
       onEmitLine(values.join(','))
-    }, Math.max(1, Math.round(1000 / config.sampleRateHz)))
-  }, [config, onEmitLine, stop])
+    }, Math.max(1, Math.round(1000 / configRef.current.sampleRateHz)))
+  }, [onEmitLine, stop])
 
   useEffect(() => () => stop(), [stop])
 

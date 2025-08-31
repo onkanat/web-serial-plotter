@@ -6,28 +6,22 @@ import Button from './components/ui/Button'
 import Input from './components/ui/Input'
 import Checkbox from './components/ui/Checkbox'
 import Select from './components/ui/Select'
-import GeneratorPanel from './components/GeneratorPanel'
-// Old SeriesPanel legend removed; overlay legend is used instead
+// GeneratorPanel removed - now integrated into connect modal
 import StatsPanel from './components/StatsPanel'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSerial } from './hooks/useSerial'
+import { useCallback, useRef, useState } from 'react'
+import { useDataConnection } from './hooks/useDataConnection'
 import { useDataStore } from './store/dataStore'
-// Note: useZoomControls and useMomentumScrolling removed - now handled by RingStore
 import Legend from './components/Legend'
 import { CameraIcon, PauseIcon, PlayIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon } from '@heroicons/react/24/outline'
 import * as htmlToImage from 'html-to-image'
 
 function App() {
-  const { state, connect, disconnect, onLine } = useSerial()
   const store = useDataStore()
   const [lastLine, setLastLine] = useState<string>('')
   const [autoscale, setAutoscale] = useState(true)
   const [manualMinInput, setManualMinInput] = useState('-1')
   const [manualMaxInput, setManualMaxInput] = useState('1')
-  // Note: windowSize, scrollPosition, frozen state now managed by store
   const [timeMode, setTimeMode] = useState<'absolute' | 'relative'>('absolute')
-
-  // Viewport controls now handled directly by store
 
   const handleIncomingLine = useCallback((line: string) => {
     setLastLine(line)
@@ -46,16 +40,7 @@ function App() {
     if (values.length > 0) store.append(values)
   }, [store])
 
-  useEffect(() => {
-    onLine(handleIncomingLine)
-  }, [onLine, handleIncomingLine])
-
-  const statusText = useMemo(() => {
-    if (!state.isSupported) return 'Web Serial unsupported'
-    if (state.isConnecting) return 'Connecting…'
-    if (state.isConnected) return 'Connected'
-    return 'Disconnected'
-  }, [state])
+  const dataConnection = useDataConnection(handleIncomingLine)
 
   const canvasRef = useRef<PlotCanvasHandle | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -86,16 +71,11 @@ function App() {
     <div className="h-dvh flex flex-col bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100 overflow-hidden">
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-neutral-800">
         <Header
-          supported={state.isSupported}
-          isConnected={state.isConnected}
-          isConnecting={state.isConnecting}
-          onConnect={(baud) => void connect(baud)}
-          onDisconnect={() => void disconnect()}
-          rightSlot={
-            <div className="flex items-center gap-3">
-              <GeneratorPanel onEmitLine={handleIncomingLine} disabled={state.isConnected || state.isConnecting} />
-            </div>
-          }
+          connectionState={dataConnection.state}
+          onConnectSerial={dataConnection.connectSerial}
+          onConnectGenerator={dataConnection.connectGenerator}
+          onDisconnect={dataConnection.disconnect}
+          generatorConfig={dataConnection.generatorConfig}
         />
         <div className="pr-4">
           <ThemeToggle />
@@ -104,7 +84,7 @@ function App() {
 
       <main className="flex-1 w-full px-4 py-3 flex flex-col gap-3 min-h-0 overflow-hidden">
         <div className="flex items-center justify-between">
-          <div className="text-xs opacity-70">Status: {statusText}{state.error ? ` · ${state.error}` : ''}</div>
+          <div /> {/* Empty div to maintain layout spacing */}
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs opacity-70">Scale</span>
             {/* inline scale controls to keep UI compact */}
@@ -168,10 +148,10 @@ function App() {
                     }
                   }}
                   onPanDelta={(delta) => {
-                    store.setViewPortCursor(store.getViewPortCursor() + delta)
+                    store.setViewPortCursor(store.getViewPortCursor() - delta)
                   }}
                   onPanEnd={(endV) => {
-                    store.startMomentum(endV)
+                    store.startMomentum(-endV)
                   }}
                   onZoomFactor={(factor) => store.zoomByFactor(factor)}
                   showHoverTooltip={true}

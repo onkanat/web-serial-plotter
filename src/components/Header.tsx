@@ -1,55 +1,94 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import Button from './ui/Button'
-import { ArrowRightStartOnRectangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
-import Input from './ui/Input'
+import { PlayIcon, StopIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import ConnectModal from './ConnectModal'
+import type { ConnectionState, ConnectionType, SerialConfig } from '../hooks/useDataConnection'
+import type { GeneratorConfig } from '../hooks/useSignalGenerator'
 
 interface Props {
-  supported: boolean
-  isConnected: boolean
-  isConnecting: boolean
-  onConnect: (baud: number) => void
+  connectionState: ConnectionState
+  onConnectSerial: (config: SerialConfig) => void
+  onConnectGenerator: (config: GeneratorConfig) => void
   onDisconnect: () => void
-  rightSlot?: React.ReactNode
+  generatorConfig: GeneratorConfig
 }
 
-const BAUD_PRESETS = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
+function getConnectionIcon(type: ConnectionType | null, isConnected: boolean) {
+  if (!isConnected) return <PlayIcon className="w-4 h-4" />
+  if (type === 'serial') return <StopIcon className="w-4 h-4" />
+  if (type === 'generator') return <StopIcon className="w-4 h-4" />
+  return <StopIcon className="w-4 h-4" />
+}
 
-export function Header({ supported, isConnected, isConnecting, onConnect, onDisconnect, rightSlot }: Props) {
-  const [baudStr, setBaudStr] = useState('115200')
-  const baud = useMemo(() => Number(baudStr) || 115200, [baudStr])
+function getConnectionText(state: ConnectionState) {
+  if (state.isConnecting) return 'Connecting...'
+  if (state.isConnected) {
+    if (state.type === 'serial') return 'Serial Connected'
+    if (state.type === 'generator') return 'Generator Running'
+    return 'Connected'
+  }
+  if (!state.isSupported) return 'Serial Unsupported'
+  if (state.error) return 'Connection Error'
+  return 'Connect'
+}
+
+function getButtonVariant(state: ConnectionState) {
+  if (state.isConnected) return 'danger'
+  if (state.error) return 'neutral'
+  return 'primary'
+}
+
+export function Header({ 
+  connectionState, 
+  onConnectSerial, 
+  onConnectGenerator, 
+  onDisconnect, 
+  generatorConfig 
+}: Props) {
+  const [showModal, setShowModal] = useState(false)
+
+  const handleButtonClick = () => {
+    if (connectionState.isConnected) {
+      onDisconnect()
+    } else {
+      setShowModal(true)
+    }
+  }
 
   return (
-    <header className="flex items-center justify-between gap-4 py-3 px-4 border-b border-neutral-800">
-      <div className="flex items-center gap-3">
-        <div className="text-lg font-semibold tracking-tight">Web Serial Plotter</div>
-        {!supported && (
-          <span className="text-xs text-red-500">Web Serial not supported in this browser</span>
-        )}
-      </div>
-      <div className="flex items-center gap-3">
-        {rightSlot}
-        <label className="text-sm opacity-80">Baud</label>
-        <Input
-          className="w-28"
-          list="baud-presets"
-          value={baudStr}
-          onChange={(e) => setBaudStr(e.target.value)}
-          placeholder="115200"
-          inputMode="numeric"
-        />
-        <datalist id="baud-presets">
-          {BAUD_PRESETS.map((b) => (
-            <option key={b} value={b.toString()} />
-          ))}
-        </datalist>
+    <>
+      <header className="flex items-center justify-between gap-4 py-3 px-4 border-b border-neutral-800">
+        <div className="flex items-center gap-3">
+          <div className="text-lg font-semibold tracking-tight">Web Serial Plotter</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant={getButtonVariant(connectionState)}
+            disabled={connectionState.isConnecting}
+            onClick={handleButtonClick}
+            startIcon={
+              connectionState.isConnected 
+                ? getConnectionIcon(connectionState.type, connectionState.isConnected)
+                : connectionState.error
+                  ? <XCircleIcon className="w-4 h-4" />
+                  : getConnectionIcon(connectionState.type, connectionState.isConnected)
+            }
+          >
+            {getConnectionText(connectionState)}
+          </Button>
+        </div>
+      </header>
 
-        {isConnected ? (
-          <Button variant="danger" onClick={() => onDisconnect()} startIcon={<ArrowRightStartOnRectangleIcon className="w-4 h-4" />}>Disconnect</Button>
-        ) : (
-          <Button variant="primary" disabled={!supported || isConnecting} onClick={() => onConnect(baud)} startIcon={<ArrowPathIcon className="w-4 h-4" />}>{isConnecting ? 'Connecting…' : 'Connect'}</Button>
-        )}
-      </div>
-    </header>
+      <ConnectModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onConnectSerial={onConnectSerial}
+        onConnectGenerator={onConnectGenerator}
+        isConnecting={connectionState.isConnecting}
+        isSupported={connectionState.isSupported}
+        generatorConfig={generatorConfig}
+      />
+    </>
   )
 }
 
