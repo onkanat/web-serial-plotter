@@ -28,7 +28,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test with coverage
+      - name: Test with coverage (Vitest)
         run: npm run test:coverage
 
       - name: Upload coverage to Coveralls
