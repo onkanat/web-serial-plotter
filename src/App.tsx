@@ -12,9 +12,7 @@ import StatsPanel from './components/StatsPanel'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSerial } from './hooks/useSerial'
 import { useDataStore } from './store/dataStore'
-import { useZoomControls } from './hooks/useZoomControls'
-import { useMomentumScrolling } from './hooks/useMomentumScrolling'
-import { calculateDataPosition } from './utils/coordinates'
+// Note: useZoomControls and useMomentumScrolling removed - now handled by RingStore
 import Legend from './components/Legend'
 import { CameraIcon, PauseIcon, PlayIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon } from '@heroicons/react/24/outline'
 import * as htmlToImage from 'html-to-image'
@@ -26,32 +24,10 @@ function App() {
   const [autoscale, setAutoscale] = useState(true)
   const [manualMinInput, setManualMinInput] = useState('-1')
   const [manualMaxInput, setManualMaxInput] = useState('1')
-  const [windowSizeInput, setWindowSizeInput] = useState('2000')
-  const [scrollOffsetInput, setScrollOffsetInput] = useState('0')
-  const [historyCapacityInput, setHistoryCapacityInput] = useState('12000')
-  const [frozen, setFrozen] = useState(false)
-  const freezeBaseTotalRef = useRef(0)
+  // Note: windowSize, scrollPosition, frozen state now managed by store
   const [timeMode, setTimeMode] = useState<'absolute' | 'relative'>('absolute')
 
-  // Momentum scrolling hook
-  const { stopMomentum, startMomentum, updateVelocity, setVelocity } = useMomentumScrolling({
-    store,
-    frozen,
-    freezeBaseTotalRef,
-    windowSizeInput,
-    setScrollOffsetInput,
-  })
-
-  // Zoom controls hook
-  const { zoomByFactor, zoomIn, zoomOut } = useZoomControls({
-    store,
-    frozen,
-    freezeBaseTotalRef,
-    scrollOffsetInput,
-    setScrollOffsetInput,
-    setWindowSizeInput,
-    stopMomentum,
-  })
+  // Viewport controls now handled directly by store
 
   const handleIncomingLine = useCallback((line: string) => {
     setLastLine(line)
@@ -106,10 +82,10 @@ function App() {
     window.addEventListener('pointerup', onUp)
   }, [setStatsHeightPx])
 
+  // Initialize anchor settings based on window size (run once)
   useEffect(() => {
-    const len = Math.max(1, Math.floor(Number(windowSizeInput) || 0))
-    store.setAnchorEveryFromWindow(len)
-  }, [windowSizeInput, store])
+    store.setAnchorEveryFromWindow(store.getWindowSize())
+  }, [store])
 
   return (
     <div className="h-dvh flex flex-col bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100 overflow-hidden">
@@ -152,10 +128,9 @@ function App() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="opacity-70">History</span>
-                <Input className="w-28" type="number" min={100} step={100} value={historyCapacityInput} onChange={(e) => setHistoryCapacityInput(e.target.value)} onBlur={() => {
-                  const cap = Math.max(100, Math.floor(Number(historyCapacityInput) || 0))
+                <Input className="w-28" type="number" min={100} step={100} value={store.getCapacity()} onChange={(e) => {
+                  const cap = Math.max(100, Math.floor(Number(e.target.value) || 0))
                   store.setMaxHistory(cap)
-                  setHistoryCapacityInput(String(store.getCapacity()))
                 }} />
                 <span className="opacity-70">pts</span>
               </div>
@@ -178,11 +153,7 @@ function App() {
           style={{ gridTemplateRows: `minmax(0,1fr) 6px ${statsHeightPx}px` }}
         >
           {(() => {
-            const uiStartRaw = Math.floor(Number(scrollOffsetInput) || 0)
-            const length = Math.max(1, Math.floor(Number(windowSizeInput) || 0))
-            const delta = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-            const startFromNewest = calculateDataPosition({ uiStart: uiStartRaw, delta, frozen })
-            const snap = store.getWindow({ startFromNewest, length })
+            const snap = store.getCurrentWindow()
             return (
               <div className="relative w-full h-full" ref={plotContainerRef}>
                 <PlotCanvas
@@ -196,54 +167,41 @@ function App() {
                     return null
                   })()} timeMode={timeMode}
                   onPanStart={() => {
-                    stopMomentum()
-                    if (!frozen) {
-                      freezeBaseTotalRef.current = store.getTotal()
-                      setFrozen(true)
+                    store.stopMomentum()
+                    if (!store.getFrozen()) {
+                      store.setFrozen(true)
                     }
                   }}
                   onPanDelta={(delta) => {
-                    updateVelocity(delta, performance.now())
-                    setScrollOffsetInput((prev) => {
-                      const current = Math.floor(Number(prev) || 0)
-                      const nextRaw = current + delta
-                      const length = Math.max(1, Math.floor(Number(windowSizeInput) || 0))
-                      const len = store.getLength()
-                      const maxScroll = Math.max(0, len - length)
-                      const deltaSinceFreeze = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-                      const minScroll = frozen ? -deltaSinceFreeze : 0
-                      const next = Math.max(minScroll, Math.min(maxScroll, nextRaw))
-                      return String(next)
-                    })
+                    store.adjustScrollPosition(delta)
                   }}
                   onPanEnd={(endV) => {
-                    setVelocity(endV)
-                    startMomentum()
+                    store.startMomentum(endV)
                   }}
-                  onZoomFactor={zoomByFactor}
+                  onZoomFactor={(factor) => store.zoomByFactor(factor)}
+                  showHoverTooltip={true}
                 />
                 {/* Tools overlay top-right */}
                 <div className="absolute top-2 right-2 flex items-center gap-2 pointer-events-auto" ref={toolsRef}>
-                  <Button size="sm" variant="neutral" aria-label={frozen ? 'Play' : 'Pause'} title={frozen ? 'Play' : 'Pause'} onClick={() => {
-                    stopMomentum()
-                    if (!frozen) {
-                      freezeBaseTotalRef.current = store.getTotal()
-                      setFrozen(true)
+                  <Button size="sm" variant="neutral" aria-label={store.getFrozen() ? 'Play' : 'Pause'} title={store.getFrozen() ? 'Play' : 'Pause'} onClick={() => {
+                    store.stopMomentum()
+                    if (!store.getFrozen()) {
+                      store.setFrozen(true)
                     } else {
-                      setScrollOffsetInput('0')
-                      setFrozen(false)
+                      store.setScrollPosition(0)
+                      store.setFrozen(false)
                     }
                   }}>
-                    {frozen ? (
+                    {store.getFrozen() ? (
                       <PlayIcon className="w-5 h-5" />
                     ) : (
                       <PauseIcon className="w-5 h-5" />
                     )}
                   </Button>
-                  <Button size="sm" variant="neutral" aria-label="Zoom in" title="Zoom in" onClick={zoomIn}>
+                  <Button size="sm" variant="neutral" aria-label="Zoom in" title="Zoom in" onClick={() => store.zoomByFactor(1.25)}>
                     <MagnifyingGlassPlusIcon className="w-5 h-5" />
                   </Button>
-                  <Button size="sm" variant="neutral" aria-label="Zoom out" title="Zoom out" onClick={zoomOut}>
+                  <Button size="sm" variant="neutral" aria-label="Zoom out" title="Zoom out" onClick={() => store.zoomByFactor(0.8)}>
                     <MagnifyingGlassMinusIcon className="w-5 h-5" />
                   </Button>
                   <Button size="sm" variant="neutral" aria-label="Save PNG" title="Save PNG" onClick={async () => {
@@ -293,11 +251,7 @@ function App() {
           />
           <div className="overflow-auto">
             {(() => {
-              const uiStartRaw = Math.floor(Number(scrollOffsetInput) || 0)
-              const length = Math.max(1, Math.floor(Number(windowSizeInput) || 0))
-              const delta = frozen ? Math.max(0, store.getTotal() - freezeBaseTotalRef.current) : 0
-              const startFromNewest = calculateDataPosition({ uiStart: uiStartRaw, delta, frozen })
-              const snap = store.getWindow({ startFromNewest, length })
+              const snap = store.getCurrentWindow()
               if (snap.length === 0) return null
               const savePng = () => {
                 const url = canvasRef.current?.exportPNG({ scale: 2, background: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#fff' })

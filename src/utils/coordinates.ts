@@ -33,7 +33,7 @@ export function calculateScrollBounds(
   frozen: boolean
 ): ScrollBounds {
   const maxScroll = Math.max(0, dataLength - windowLength)
-  const minScroll = frozen ? -delta : 0
+  const minScroll = frozen ? (-delta === 0 ? 0 : -delta) : 0
   return { min: minScroll, max: maxScroll }
 }
 

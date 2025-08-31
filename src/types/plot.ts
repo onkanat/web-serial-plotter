@@ -23,6 +23,7 @@ export interface PlotSnapshot {
   getTimes: () => Float64Array
   windowStartTotal: number
   anchors: { total: number; time: number }[]
+  intendedWindowSize: number
 }
 
 

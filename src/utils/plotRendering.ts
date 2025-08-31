@@ -278,19 +278,147 @@ export function drawSeries(
     ctx.strokeStyle = series.color
     ctx.lineWidth = 1.5
     
+    let hasPath = false
+    let lastX = -Infinity
+    let lastY = -Infinity
+    
     for (let i = 0; i < data.length; i++) {
-      const x = chart.x + i * xScale
-      const y = chart.y + chart.height - (data[i] - yMin) * yScale
+      const value = data[i]
+      if (!Number.isFinite(value)) {
+        // Skip NaN/undefined values - break the path
+        hasPath = false
+        continue
+      }
       
-      if (i === 0) {
+      const x = chart.x + i * xScale
+      const y = chart.y + chart.height - (value - yMin) * yScale
+      
+      // Skip subpixel movements for performance
+      if (Math.abs(x - lastX) < 0.5 && Math.abs(y - lastY) < 0.5 && hasPath) {
+        continue
+      }
+      
+      if (!hasPath) {
         ctx.moveTo(x, y)
+        hasPath = true
       } else {
         ctx.lineTo(x, y)
       }
+      
+      lastX = x
+      lastY = y
     }
     
     ctx.stroke()
   }
   
   ctx.restore()
+}
+
+/**
+ * Draws a vertical crosshair line at the hovered sample position.
+ */
+export function drawHoverCrosshair(
+  ctx: CanvasRenderingContext2D,
+  chart: ChartBounds,
+  theme: Theme,
+  snapshot: PlotSnapshot,
+  hover: { x: number; y: number; sampleIndex: number }
+) {
+  const { sampleIndex } = hover
+  if (sampleIndex < 0 || sampleIndex >= snapshot.length) return
+  
+  // Draw vertical line at sample position
+  const xScale = snapshot.length > 1 ? chart.width / (snapshot.length - 1) : 1
+  const lineX = chart.x + sampleIndex * xScale
+  
+  ctx.save()
+  ctx.strokeStyle = theme.textColor
+  ctx.globalAlpha = 0.5
+  ctx.setLineDash([3, 3])
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(lineX, chart.y)
+  ctx.lineTo(lineX, chart.y + chart.height)
+  ctx.stroke()
+  ctx.restore()
+}
+
+/**
+ * Draws a hover tooltip showing sample values at the specified index.
+ */
+export function drawHoverTooltip(
+  ctx: CanvasRenderingContext2D,
+  chart: ChartBounds,
+  theme: Theme,
+  snapshot: PlotSnapshot,
+  timeMode: 'absolute' | 'relative',
+  hover: { x: number; y: number; sampleIndex: number }
+) {
+  const { sampleIndex } = hover
+  if (sampleIndex < 0 || sampleIndex >= snapshot.length) return
+  
+  const times = snapshot.getTimes?.() ?? new Float64Array(0)
+  if (sampleIndex >= times.length) return
+  
+  const timestamp = times[sampleIndex]
+  if (!Number.isFinite(timestamp)) return // Skip NaN timestamps
+  
+  // Collect all series values at this index
+  const values: Array<{ name: string; value: number; color: string }> = []
+  for (const series of snapshot.series) {
+    const data = snapshot.getSeriesData(series.id)
+    if (sampleIndex < data.length) {
+      const value = data[sampleIndex]
+      if (Number.isFinite(value)) {
+        values.push({ name: series.name, value, color: series.color })
+      }
+    }
+  }
+  
+  if (values.length === 0) return
+  
+  // Format timestamp
+  const rightTime = times[times.length - 1]
+  const windowMs = Math.max(1, rightTime - times[0])
+  const timeLabel = formatTimeLabel(timestamp, rightTime, windowMs, timeMode)
+  
+  // Calculate tooltip content and size
+  const lines = [`Time: ${timeLabel}`, ...values.map(v => `${v.name}: ${v.value.toFixed(3)}`)]
+  const padding = 8
+  const lineHeight = 14
+  const fontSize = 12
+  
+  ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  
+  // Measure text for tooltip sizing
+  const maxWidth = Math.max(...lines.map(line => ctx.measureText(line).width))
+  const tooltipWidth = maxWidth + padding * 2
+  const tooltipHeight = lines.length * lineHeight + padding * 2
+  
+  // Position tooltip (avoid edges)
+  let tooltipX = hover.x + 10
+  let tooltipY = hover.y - tooltipHeight - 10
+  
+  if (tooltipX + tooltipWidth > chart.x + chart.width) {
+    tooltipX = hover.x - tooltipWidth - 10
+  }
+  if (tooltipY < chart.y) {
+    tooltipY = hover.y + 10
+  }
+  
+  // Draw tooltip background
+  ctx.fillStyle = theme.plotBg
+  ctx.strokeStyle = theme.plotGrid
+  ctx.lineWidth = 1
+  ctx.fillRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight)
+  ctx.strokeRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight)
+  
+  // Draw tooltip text
+  ctx.fillStyle = theme.textColor
+  lines.forEach((line, i) => {
+    ctx.fillText(line, tooltipX + padding, tooltipY + padding + i * lineHeight)
+  })
 }

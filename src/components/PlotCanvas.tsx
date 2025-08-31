@@ -7,7 +7,9 @@ import {
   drawBackgroundAndGrid,
   drawYAxis,
   drawXAxis,
-  drawSeries
+  drawSeries,
+  drawHoverTooltip,
+  drawHoverCrosshair
 } from '../utils/plotRendering'
 
 /**
@@ -25,13 +27,14 @@ interface Props {
   onPanDelta?: (deltaSamples: number) => void
   onPanEnd?: (endVelocitySamplesPerMs: number) => void
   onZoomFactor?: (factor: number) => void
+  showHoverTooltip?: boolean
 }
 
 export type PlotCanvasHandle = {
   exportPNG: (opts?: { scale?: number; background?: string }) => string
 }
 
-export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanvas({ snapshot, yOverride, showYAxis = true, timeMode = 'absolute', onPanStart, onPanDelta, onPanEnd, onZoomFactor }, ref) {
+export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanvas({ snapshot, yOverride, showYAxis = true, timeMode = 'absolute', onPanStart, onPanDelta, onPanEnd, onZoomFactor, showHoverTooltip = false }, ref) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const snapshotRef = useRef<PlotSnapshot>(snapshot)
   const yOverrideRef = useRef<Props['yOverride']>(yOverride)
@@ -39,10 +42,43 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
   const panDeltaRef = useRef<Props['onPanDelta'] | undefined>(undefined)
   const panEndRef = useRef<Props['onPanEnd'] | undefined>(undefined)
   const zoomFactorRef = useRef<Props['onZoomFactor'] | undefined>(undefined)
-  panStartRef.current = onPanStart
-  panDeltaRef.current = onPanDelta
-  panEndRef.current = onPanEnd
-  zoomFactorRef.current = onZoomFactor
+  
+  // Hover state for tooltip and crosshair (use ref to avoid re-renders)
+  const hoverState = useRef<{ x: number; y: number; sampleIndex: number } | null>(null)
+  const isDraggingRef = useRef(false)
+  
+  // Memoize ref assignments to avoid unnecessary updates
+  const updateRefs = useCallback(() => {
+    panStartRef.current = onPanStart
+    panDeltaRef.current = onPanDelta
+    panEndRef.current = onPanEnd
+    zoomFactorRef.current = onZoomFactor
+  }, [onPanStart, onPanDelta, onPanEnd, onZoomFactor])
+  
+  updateRefs()
+
+  // Utility to convert mouse X coordinate to sample index
+  const getSampleIndexFromMouseX = useCallback((mouseX: number): number | null => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    
+    const snap = snapshotRef.current
+    if (snap.length === 0) return null
+    
+    const leftAxis = showYAxis ? 44 : 0
+    const rightPadding = 8
+    const chartX = leftAxis
+    const chartWidth = Math.max(1, canvas.clientWidth - leftAxis - rightPadding)
+    
+    // Check if mouse is within chart area
+    if (mouseX < chartX || mouseX > chartX + chartWidth) return null
+    
+    const relativeX = mouseX - chartX
+    const xScale = snap.length > 1 ? chartWidth / (snap.length - 1) : 1
+    const sampleIndex = Math.round(relativeX / xScale)
+    
+    return sampleIndex >= 0 && sampleIndex < snap.length ? sampleIndex : null
+  }, [showYAxis])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -79,7 +115,18 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     
     drawXAxis(ctx, chart, theme, snap, timeMode)
     drawSeries(ctx, chart, snap, yMin, yMax)
-  }, [showYAxis, timeMode])
+    
+    // Draw hover crosshair and tooltip if mouse is over a sample and not dragging
+    if (hoverState.current && !isDraggingRef.current) {
+      // Always draw vertical line on hover
+      drawHoverCrosshair(ctx, chart, theme, snap, hoverState.current)
+      
+      // Draw tooltip if enabled
+      if (showHoverTooltip) {
+        drawHoverTooltip(ctx, chart, theme, snap, timeMode, hoverState.current)
+      }
+    }
+  }, [showYAxis, timeMode, showHoverTooltip])
 
   // Resize to DPR changes and container size
   useEffect(() => {
@@ -105,6 +152,47 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     return () => ro.disconnect()
   }, [draw])
 
+  // Hover tooltip handler (separate from pan/zoom to avoid interference)
+  useEffect(() => {
+    if (!showHoverTooltip) return
+    
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const onMouseMove = (e: MouseEvent) => {
+      // Don't update hover state while dragging
+      if (isDraggingRef.current) return
+      
+      const rect = canvas.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+      const sampleIndex = getSampleIndexFromMouseX(mouseX)
+      
+      if (sampleIndex !== null) {
+        hoverState.current = { x: mouseX, y: mouseY, sampleIndex }
+        draw() // Redraw with crosshair/tooltip
+      } else if (hoverState.current) {
+        hoverState.current = null
+        draw() // Redraw without crosshair/tooltip
+      }
+    }
+    
+    const onMouseLeave = () => {
+      if (hoverState.current) {
+        hoverState.current = null
+        draw() // Redraw without tooltip
+      }
+    }
+    
+    canvas.addEventListener('mousemove', onMouseMove)
+    canvas.addEventListener('mouseleave', onMouseLeave)
+    
+    return () => {
+      canvas.removeEventListener('mousemove', onMouseMove)
+      canvas.removeEventListener('mouseleave', onMouseLeave)
+    }
+  }, [showHoverTooltip, getSampleIndexFromMouseX, draw])
+
   // Grab-to-pan & pinch-to-zoom handlers (stable across renders)
   useEffect(() => {
     const canvas = canvasRef.current
@@ -123,7 +211,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     let pinchStartDist = 0
 
     const updateCursor = () => {
-      canvas.style.cursor = isDragging ? 'grabbing' : 'grab'
+      canvas.style.cursor = isDragging ? 'grabbing' : 'crosshair'
     }
 
     canvas.style.touchAction = 'none'
@@ -233,8 +321,10 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
         return
       }
       isDragging = false
+      isDraggingRef.current = false
       updateCursor()
       cleanupDrag()
+      draw() // Redraw to show hover elements again
       if (panEndRef.current) panEndRef.current(vEst)
       vEst = 0
       lastTs = 0
@@ -255,12 +345,14 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
       } else if (pointers.size === 1) {
         if (e.button !== 0) return
         isDragging = true
+        isDraggingRef.current = true
         lastX = e.clientX
         accumSamples = 0
         activePointerId = e.pointerId
         vEst = 0
         lastTs = e.timeStamp || performance.now()
         updateCursor()
+        draw() // Redraw to hide hover elements during drag
         try { canvas.setPointerCapture(e.pointerId) } catch { /* ignore */ }
         window.addEventListener('pointermove', onPointerMove, { passive: false })
         window.addEventListener('pointerup', endDrag as unknown as EventListener, { passive: false })
@@ -310,11 +402,26 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     }
   }, [draw])
 
-  // Redraw on snapshot or scale changes
+  // Redraw on snapshot or scale changes (with shallow comparison)
+  const prevSnapshotRef = useRef<PlotSnapshot | null>(null)
+  const prevYOverrideRef = useRef<Props['yOverride']>(null)
+  
   useEffect(() => {
-    snapshotRef.current = snapshot
-    yOverrideRef.current = yOverride
-    draw()
+    const prev = prevSnapshotRef.current
+    const shouldRedraw = !prev || 
+      prev.length !== snapshot.length ||
+      prev.windowStartTotal !== snapshot.windowStartTotal ||
+      prev.yMin !== snapshot.yMin ||
+      prev.yMax !== snapshot.yMax ||
+      prevYOverrideRef.current !== yOverride
+    
+    if (shouldRedraw) {
+      snapshotRef.current = snapshot
+      yOverrideRef.current = yOverride
+      prevSnapshotRef.current = snapshot
+      prevYOverrideRef.current = yOverride
+      draw()
+    }
   }, [snapshot, yOverride, draw])
 
   // Redraw when theme class toggles

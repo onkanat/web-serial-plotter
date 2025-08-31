@@ -6,7 +6,7 @@ const StoreContext = createContext<RingStore | null>(null)
 
 export function DataStoreProvider({ children }: { children: React.ReactNode }) {
   const storeRef = useRef<RingStore | null>(null)
-  if (!storeRef.current) storeRef.current = new RingStore(12000, 3)
+  if (!storeRef.current) storeRef.current = new RingStore(100000, 3)
   const value = storeRef.current
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
