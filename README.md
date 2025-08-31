@@ -1,6 +1,6 @@
 [![CI](https://github.com/atomic14/web-serial-plotter/actions/workflows/ci.yml/badge.svg)](https://github.com/atomic14/web-serial-plotter/actions/workflows/ci.yml)
 
-[![Coverage Status](https://coveralls.io/repos/github/OWNER/REPO/badge.svg?branch=main)](https://coveralls.io/github/atomic14/web-serial-plotter?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/atomic14/web-serial-plotter/badge.svg?branch=main)](https://coveralls.io/github/atomic14/web-serial-plotter?branch=main)
 
 # Web Serial Plotter
 
