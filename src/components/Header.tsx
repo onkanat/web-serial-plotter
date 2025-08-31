@@ -7,9 +7,9 @@ import type { GeneratorConfig } from '../hooks/useSignalGenerator'
 
 interface Props {
   connectionState: ConnectionState
-  onConnectSerial: (config: SerialConfig) => void
-  onConnectGenerator: (config: GeneratorConfig) => void
-  onDisconnect: () => void
+  onConnectSerial: (config: SerialConfig) => Promise<void>
+  onConnectGenerator: (config: GeneratorConfig) => Promise<void>
+  onDisconnect: () => Promise<void>
   generatorConfig: GeneratorConfig
 }
 
@@ -46,6 +46,7 @@ export function Header({
   generatorConfig 
 }: Props) {
   const [showModal, setShowModal] = useState(false)
+  
 
   const handleButtonClick = () => {
     if (connectionState.isConnected) {

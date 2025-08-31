@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 export type BaudRate = 9600 | 19200 | 38400 | 57600 | 115200 | 230400 | 460800 | 921600
 
@@ -32,9 +32,11 @@ export function useSerial(): UseSerial {
     error: null,
   })
 
+
   const lineHandlerRef = useRef<((line: string) => void) | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const readerRef = useRef<ReadableStreamDefaultReader<string> | null>(null)
+  const portRef = useRef<SerialPort | null>(null)
 
   const onLine = useCallback((handler: (line: string) => void) => {
     lineHandlerRef.current = handler
@@ -44,6 +46,7 @@ export function useSerial(): UseSerial {
     try {
       abortControllerRef.current?.abort()
       abortControllerRef.current = null
+      
       if (readerRef.current) {
         try {
           await readerRef.current.cancel()
@@ -52,31 +55,56 @@ export function useSerial(): UseSerial {
         }
       }
       readerRef.current = null
-      if (state.port && typeof state.port.close === 'function') {
-        await state.port.close()
+      
+      if (portRef.current && typeof portRef.current.close === 'function') {
+        await portRef.current.close()
       }
+      portRef.current = null
+      
     } catch {
       // swallow
     } finally {
       setState((s) => ({ ...s, isConnected: false, port: null, readerLocked: false }))
     }
-  }, [state.port])
+  }, []) // No dependencies - use refs for everything
 
   const connect = useCallback(async (baudRate: number) => {
     if (!state.isSupported) {
       setState((s) => ({ ...s, error: 'Web Serial not supported in this browser.' }))
       return
     }
+    
+    // Make sure we're fully disconnected first
+    if (portRef.current) {
+      await disconnect()
+    }
+    
     setState((s) => ({ ...s, isConnecting: true, error: null }))
+    
     try {
+      // Always request a fresh port - don't reuse existing ones
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const port: any = await (navigator as Navigator).serial!.requestPort()
+      
+      // Check if port is already open before attempting to open it
+      if (port.readable) {
+        try {
+          await port.close()
+          // Give it a moment to fully close
+          await new Promise(resolve => setTimeout(resolve, 100))
+        } catch {
+          // ignore
+        }
+      }
+      
       await port.open({ baudRate })
 
       const textDecoder = new TextDecoderStream()
       const readableClosed = port.readable.pipeTo(textDecoder.writable)
       const reader = textDecoder.readable.getReader()
       readerRef.current = reader
+      portRef.current = port
+      
       setState((s) => ({ ...s, port, isConnected: true }))
 
       const abort = new AbortController()
@@ -122,11 +150,6 @@ export function useSerial(): UseSerial {
     }
   }, [state.isSupported])
 
-  useEffect(() => {
-    return () => {
-      void disconnect()
-    }
-  }, [disconnect])
 
   return { state, connect, disconnect, onLine }
 }

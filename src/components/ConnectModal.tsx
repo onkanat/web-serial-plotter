@@ -11,8 +11,8 @@ import { DEFAULT_SERIAL_CONFIG } from '../hooks/useDataConnection'
 interface Props {
   isOpen: boolean
   onClose: () => void
-  onConnectSerial: (config: SerialConfig) => void
-  onConnectGenerator: (config: GeneratorConfig) => void
+  onConnectSerial: (config: SerialConfig) => Promise<void>
+  onConnectGenerator: (config: GeneratorConfig) => Promise<void>
   isConnecting: boolean
   isSupported: boolean
   generatorConfig: GeneratorConfig
@@ -35,14 +35,22 @@ export function ConnectModal({
 
   if (!isOpen) return null
 
-  const handleSerialConnect = () => {
-    onConnectSerial(serialConfig)
-    onClose()
+  const handleSerialConnect = async () => {
+    try {
+      await onConnectSerial(serialConfig)
+      onClose()
+    } catch (error) {
+      // Keep modal open on error so user can try again
+    }
   }
 
-  const handleGeneratorConnect = () => {
-    onConnectGenerator(localGeneratorConfig)
-    onClose()
+  const handleGeneratorConnect = async () => {
+    try {
+      await onConnectGenerator(localGeneratorConfig)
+      onClose()
+    } catch (error) {
+      // Keep modal open on error so user can try again
+    }
   }
 
   return (

@@ -42,6 +42,7 @@ export function useDataConnection(onLine: (line: string) => void): UseDataConnec
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+
   const serial = useSerial()
   const generator = useSignalGenerator(onLine)
 
@@ -53,6 +54,7 @@ export function useDataConnection(onLine: (line: string) => void): UseDataConnec
     error: error || serial.state.error
   }
 
+
   const connectSerial = useCallback(async (config: SerialConfig) => {
     if (generator.isRunning) {
       generator.stop()
@@ -60,18 +62,19 @@ export function useDataConnection(onLine: (line: string) => void): UseDataConnec
     
     setIsConnecting(true)
     setError(null)
-    setConnectionType('serial')
     
     try {
       // Convert our config to the format useSerial expects
       // Note: Web Serial API has limited configuration options
       await serial.connect(config.baudRate)
+      setConnectionType('serial')
       // The actual port configuration would need to be done at the port.open() level
       // For now, we'll just use baudRate as useSerial currently does
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to connect to serial port'
       setError(message)
       setConnectionType(null)
+      throw err // Re-throw so ConnectModal knows the connection failed
     } finally {
       setIsConnecting(false)
     }
