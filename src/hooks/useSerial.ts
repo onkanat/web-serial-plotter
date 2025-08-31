@@ -148,7 +148,7 @@ export function useSerial(): UseSerial {
     } finally {
       setState((s) => ({ ...s, isConnecting: false }))
     }
-  }, [state.isSupported])
+  }, [state.isSupported, disconnect])
 
 
   return { state, connect, disconnect, onLine }

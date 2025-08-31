@@ -39,7 +39,7 @@ export function ConnectModal({
     try {
       await onConnectSerial(serialConfig)
       onClose()
-    } catch (error) {
+    } catch {
       // Keep modal open on error so user can try again
     }
   }
@@ -48,7 +48,7 @@ export function ConnectModal({
     try {
       await onConnectGenerator(localGeneratorConfig)
       onClose()
-    } catch (error) {
+    } catch {
       // Keep modal open on error so user can try again
     }
   }
