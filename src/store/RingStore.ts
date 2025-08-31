@@ -1,64 +1,44 @@
 import type { PlotSeries } from '../types/plot'
-import { calculateDataPosition, calculateScrollBounds, clampScroll } from '../utils/coordinates'
 
-export interface WindowSpec { startFromNewest: number; length: number }
-
-interface StoreSnapshot {
+export interface ViewPortData {
   series: PlotSeries[]
-  buffers: Float32Array[]
-  times: Float64Array
-  capacity: number
-  length: number
-  writeIndex: number
-  total: number
-  lastAppendMs: number | null
-  emaMsPerSample: number | null
-  anchors: { total: number; time: number }[]
-  // Viewport state
-  windowSize: number
-  scrollPosition: number
-  frozen: boolean
-  freezeBaseTotal: number
-  // Incremental min/max tracking
-  globalMin: number
-  globalMax: number
+  getSeriesData: (id: number) => Float32Array
+  yMin: number
+  yMax: number
+  getTimes: () => Float64Array
+  viewPortCursor: number
+  viewPortSize: number
 }
 
 /**
  * RingStore maintains fixed-capacity series buffers and timestamps in a ring.
  * - append(values) writes one sample across all series, records Date.now() to times
- * - getWindow(spec) returns a windowed, contiguous snapshot for rendering and stats
- * - Anchors: created at append-time every N samples (anchorEverySamples), where N can be adjusted
- *   via setAnchorEveryFromWindow(windowLength) to target ~5 anchors for the current window.
  */
 export class RingStore {
-  private snapshot: StoreSnapshot
-  private listeners = new Set<() => void>()
-  private anchorEverySamples: number
+  // Series data
+  series: PlotSeries[] = []
+  // The buffers for each series - these are the raw data
+  buffers: Float32Array[] = []
+  // The timestamps for each sample - these are the timestamps of each sample
+  times: Float64Array = new Float64Array(0)
+  // The capacity of the ring buffer - this is the number of samples that can be stored
+  capacity: number = 100000
+  // The index of the next sample to be written - this is the index of the next sample to be written
+  writeIndex: number = 0
+  // The cursor position of the viewport - this is the index of the rightmost displayed sample
+  viewPortCursor: number = 0
+  // The size of the viewport - this is the number of samples displayed to the left of the cursor
+  viewPortSize: number = 2000
+  // Whether the viewport is frozen - if true, the viewport will not move when new data is appended
+  frozen: boolean = false
+  // Incremental min/max tracking
+  globalMin: number = Number.POSITIVE_INFINITY
+  globalMax: number = Number.NEGATIVE_INFINITY
 
-  constructor(capacity = 100000, seriesCount = 3) {
-    this.snapshot = {
-      series: new Array(seriesCount).fill(0).map((_, i) => ({ id: i, name: `S${i + 1}`, color: DEFAULT_COLORS[i % DEFAULT_COLORS.length] })),
-      buffers: new Array(seriesCount).fill(0).map(() => new Float32Array(capacity)),
-      times: new Float64Array(capacity),
-      capacity,
-      length: 0,
-      writeIndex: 0,
-      total: 0,
-      lastAppendMs: null,
-      emaMsPerSample: null,
-      anchors: [],
-      // Viewport state
-      windowSize: 200,
-      scrollPosition: 0,
-      frozen: false,
-      freezeBaseTotal: 0,
-      // Incremental min/max tracking
-      globalMin: Number.POSITIVE_INFINITY,
-      globalMax: Number.NEGATIVE_INFINITY,
-    }
-    // Initialize anchor stride based on initial window size (target ~5 anchors)
-    this.anchorEverySamples = Math.max(1, Math.round(this.snapshot.windowSize / 5))
+  private listeners = new Set<() => void>()
+
+  constructor(capacity = 100000, viewPortSize = 200) {
+    this.reset(capacity, viewPortSize, ['S1', 'S2', 'S3'])
   }
 
   subscribe(fn: () => void) {
@@ -69,305 +49,203 @@ export class RingStore {
   private emit() {
     for (const fn of this.listeners) fn()
   }
+  
+  private invalidateViewPortCache() {
+    this.cachedViewPortData = null
+  }
 
   setSeries(names: string[]) {
-    const seriesCount = names.length
-    const { capacity } = this.snapshot
-    this.snapshot.series = names.map((n, i) => ({ id: i, name: n, color: DEFAULT_COLORS[i % DEFAULT_COLORS.length] }))
-    this.snapshot.buffers = new Array(seriesCount).fill(0).map(() => new Float32Array(capacity))
-    this.snapshot.times = new Float64Array(capacity)
-    this.snapshot.length = 0
-    this.snapshot.writeIndex = 0
-    this.snapshot.total = 0
-    this.snapshot.anchors = []
-    // Reset viewport state when data is cleared
-    this.snapshot.scrollPosition = 0
-    this.snapshot.frozen = false
-    this.snapshot.freezeBaseTotal = 0
-    // Reset min/max tracking
-    this.snapshot.globalMin = Number.POSITIVE_INFINITY
-    this.snapshot.globalMax = Number.NEGATIVE_INFINITY
+    // TODO - ideally should keep any existing data and just update the series names/add new ones
+    this.reset(this.capacity, this.viewPortSize, names)
+    this.invalidateViewPortCache() // reset() changes writeIndex, viewPortCursor, series
     this.emit()
   }
 
-  setMaxHistory(capacity: number) {
-    const s = this.snapshot
-    if (capacity === s.capacity) return
-    
-    const newBuffers = s.buffers.map(() => new Float32Array(capacity))
-    const newTimes = new Float64Array(capacity)
-    const copyLen = Math.min(capacity, s.length)
-    
-    if (copyLen > 0 && capacity > 0) {
-      // Extract the most recent copyLen values in chronological order
-      const recent: number[][] = []
-      const recentTimes: number[] = []
-      
-      if (s.length === s.capacity) {
-        // Ring buffer case - data wraps around
-        const oldestPos = s.writeIndex
-        for (let i = 0; i < copyLen; i++) {
-          const ringIdx = (oldestPos + s.length - copyLen + i) % s.capacity
-          const values = s.buffers.map(buf => buf[ringIdx])
-          recent.push(values)
-          recentTimes.push(s.times[ringIdx])
-        }
-      } else {
-        // Linear case - data is contiguous from index 0
-        const startIdx = Math.max(0, s.length - copyLen)
-        for (let i = 0; i < copyLen; i++) {
-          const idx = startIdx + i
-          const values = s.buffers.map(buf => buf[idx])
-          recent.push(values)
-          recentTimes.push(s.times[idx])
-        }
-      }
-      
-      // Place extracted data - for non-full buffers, data goes at the beginning
-      // For full buffers, data goes at the end
-      const targetOffset = copyLen < capacity ? 0 : capacity - copyLen
-      for (let k = 0; k < s.buffers.length; k++) {
-        for (let i = 0; i < copyLen; i++) {
-          newBuffers[k][targetOffset + i] = recent[i][k]
-        }
-      }
-      
-      for (let i = 0; i < copyLen; i++) {
-        newTimes[targetOffset + i] = recentTimes[i]
-      }
-    }
-    
-    // Trim anchors to last copyLen (same samples we kept)
-    const newestTotal = s.total - 1
-    const keepFromTotal = Math.max(0, newestTotal - copyLen + 1)
-    const newAnchors = s.anchors.filter(a => a.total >= keepFromTotal)
+  getSeries() {
+    return this.series
+  }
 
-    this.snapshot = {
-      ...s,
-      capacity,
-      buffers: newBuffers,
-      times: newTimes,
-      length: copyLen,
-      writeIndex: copyLen < capacity ? copyLen : 0,
-      anchors: newAnchors,
+  reset(capacity = 100000, viewPortSize = 200, seriesNames: string[]) {
+    // construct with a set of series
+    this.series = new Array(seriesNames.length).fill(0).map((_, i) => ({ id: i, name: seriesNames[i], color: DEFAULT_COLORS[i % DEFAULT_COLORS.length] }))
+    // create the buffers for storing the series data - these should be filled with NaN
+    this.buffers = new Array(seriesNames.length).fill(0).map(() => new Float32Array(capacity).fill(NaN))
+    // create the timestamps for each sample - these should be filled with NaN
+    this.times = new Float64Array(capacity).fill(NaN)
+    // set the capacity
+    this.capacity = capacity
+    // set the write index to 0
+    this.writeIndex = 0
+    // set the view port cursor to 0
+    this.viewPortCursor = 0
+    // set the view port size to 200
+    this.viewPortSize = viewPortSize
+    // set the frozen state to false
+    this.frozen = false
+    // Incremental min/max tracking
+    this.globalMin = Number.POSITIVE_INFINITY
+    this.globalMax = Number.NEGATIVE_INFINITY
+  }
+
+  setCapacity(capacity: number) {
+    // nothing to do if the capacity is the same
+    if (capacity === this.capacity) return
+    // create the new buffers making sure that they are filled with NaN
+    const newBuffers = this.buffers.map(() => new Float32Array(capacity).fill(NaN))
+    const newTimes = new Float64Array(capacity).fill(NaN)
+    // Determine how many samples we currently retain and how many we can keep
+    const retainedCount = Math.min(this.writeIndex, this.capacity)
+    const keepCount = Math.min(retainedCount, capacity)
+
+    // Copy the latest keepCount samples into the front of the new buffers in order
+    const srcStartTotalIndex = this.writeIndex - keepCount
+    for (let j = 0; j < keepCount; j++) {
+      const srcTotalIndex = srcStartTotalIndex + j
+      const srcRingIndex = ((srcTotalIndex % this.capacity) + this.capacity) % this.capacity
+      for (let s = 0; s < this.series.length; s++) {
+        newBuffers[s][j] = this.buffers[s][srcRingIndex]
+      }
+      newTimes[j] = this.times[srcRingIndex]
     }
-    
-    // Recompute global min/max for remaining data
+
+    // Swap in new storage and update capacity/write index
+    this.buffers = newBuffers
+    this.times = newTimes
+    this.capacity = capacity
+    this.writeIndex = keepCount
+    this.invalidateViewPortCache() // capacity/writeIndex changed
+
+    // Recompute global min/max on the resized buffers
     this.recomputeGlobalMinMax()
-    
+
     // Revalidate viewport constraints after capacity change
-    this.setWindowSize(s.windowSize) // This will also revalidate scroll position
-    this.emit()
+    // Ensure viewport size is clamped and cursor remains valid
+    this.viewPortSize = Math.min(this.viewPortSize, this.capacity)
+    // If not frozen, follow the latest sample; otherwise clamp within range
+    if (!this.frozen) {
+      this.setViewPortCursor(this.writeIndex - 1)
+    } else {
+      this.setViewPortCursor(this.viewPortCursor)
+    }
+  }
+
+  getCapacity() {
+    return this.capacity
   }
 
   append(values: number[]) {
-    const s = this.snapshot
-    if (values.length !== s.buffers.length) return
-    const idx = s.writeIndex
+    // TODO - we are receiving new data - we should create a new series - maybe this should be a map of series names to values
+    if (values.length !== this.buffers.length) return
     for (let i = 0; i < values.length; i++) {
       const value = values[i]
-      s.buffers[i][idx] = value
+      this.buffers[i][this.writeIndex % this.capacity] = value
       // Update global min/max incrementally
       if (Number.isFinite(value)) {
-        if (value < s.globalMin) s.globalMin = value
-        if (value > s.globalMax) s.globalMax = value
+        if (value < this.globalMin) this.globalMin = value
+        if (value > this.globalMax) this.globalMax = value
       }
     }
     const now = Date.now()
-    s.times[idx] = now
-    s.writeIndex = (idx + 1) % s.capacity
-    s.length = Math.min(s.length + 1, s.capacity)
-    s.total += 1
-    // EMA of ms/sample for diagnostics and optional UI use
-    if (s.lastAppendMs != null) {
-      const dt = Math.max(1, now - s.lastAppendMs)
-      const alpha = 0.2
-      s.emaMsPerSample = s.emaMsPerSample == null ? dt : alpha * dt + (1 - alpha) * s.emaMsPerSample
+    this.times[this.writeIndex % this.capacity] = now
+    this.writeIndex++
+    // if we're not frozen the view port cursor tracks the latest write index
+    if (!this.frozen) {
+      this.viewPortCursor = this.writeIndex - 1
     }
-    s.lastAppendMs = now
-
-    // Append-time anchors using current stride
-    const justWrittenTotal = s.total - 1
-    if (justWrittenTotal % this.anchorEverySamples === 0) {
-      s.anchors.push({ total: justWrittenTotal, time: now })
-    }
-    // Trim anchors to match history size
-    const minKeepTotal = Math.max(0, s.total - s.capacity)
-    if (s.anchors.length > 0 && s.anchors[0].total < minKeepTotal) {
-      let drop = 0
-      while (drop < s.anchors.length && s.anchors[drop].total < minKeepTotal) drop++
-      if (drop > 0) s.anchors.splice(0, drop)
-    }
-
+    this.invalidateViewPortCache() // writeIndex changed, possibly viewPortCursor too
     this.emit()
   }
 
   /** Recompute global min/max across all retained data. */
   private recomputeGlobalMinMax() {
-    const s = this.snapshot
-    s.globalMin = Number.POSITIVE_INFINITY
-    s.globalMax = Number.NEGATIVE_INFINITY
-    
-    if (s.length === 0) return
-    
-    for (let k = 0; k < s.buffers.length; k++) {
-      const buffer = s.buffers[k]
-      if (s.length < s.capacity) {
-        // Linear case
-        for (let i = 0; i < s.length; i++) {
-          const value = buffer[i]
-          if (Number.isFinite(value)) {
-            if (value < s.globalMin) s.globalMin = value
-            if (value > s.globalMax) s.globalMax = value
-          }
-        }
-      } else {
-        // Ring case
-        for (let i = 0; i < s.capacity; i++) {
-          const value = buffer[i]
-          if (Number.isFinite(value)) {
-            if (value < s.globalMin) s.globalMin = value
-            if (value > s.globalMax) s.globalMax = value
-          }
+    this.globalMin = Number.POSITIVE_INFINITY
+    this.globalMax = Number.NEGATIVE_INFINITY
+
+    for (let s = 0; s < this.series.length; s++) {
+      const buffer = this.buffers[s]
+      for(let i = 0; i < this.capacity; i++) {
+        const value = buffer[i]
+        if (Number.isFinite(value)) {
+          if (value < this.globalMin) this.globalMin = value
+          if (value > this.globalMax) this.globalMax = value
         }
       }
     }
   }
 
-  /** Rebuild anchors across current retained samples based on anchorEverySamples. */
-  private recomputeAnchors() {
-    const s = this.snapshot
-    s.anchors = []
-    const len = s.length
-    if (len === 0) return
-    const oldestTotal = s.total - len
-    if (len < s.capacity) {
-      for (let pos = 0; pos < len; pos++) {
-        const total = oldestTotal + pos
-        if (total % this.anchorEverySamples === 0) {
-          const t = s.times[pos]
-          s.anchors.push({ total, time: t })
-        }
-      }
-    } else {
-      // Full ring
-      for (let pos = 0; pos < len; pos++) {
-        const total = oldestTotal + pos
-        if (total % this.anchorEverySamples === 0) {
-          const ringIdx = (s.writeIndex + pos) % s.capacity
-          const t = s.times[ringIdx]
-          s.anchors.push({ total, time: t })
-        }
-      }
+  getViewPortData() {
+    // Check if we can use cached data
+    const currentKey = { 
+      writeIndex: this.writeIndex, 
+      viewPortCursor: this.viewPortCursor, 
+      viewPortSize: this.viewPortSize, 
+      frozen: this.frozen 
     }
-  }
-
-  /** Set anchor stride based on window length (target ~5 anchors) and rebuild anchors. */
-  setAnchorEveryFromWindow(windowLength: number) {
-    const step = Math.max(1, Math.round(windowLength / 5))
-    this.anchorEverySamples = step
-    this.recomputeAnchors()
-    this.emit()
-  }
-
-  getWindow(spec: WindowSpec) {
-    const s = this.snapshot
-    const len = s.length
-    const capacity = s.capacity
-    const clampedStartFromNewest = Math.max(0, spec.startFromNewest)
-    const maxWindowLength = Math.max(0, len - clampedStartFromNewest)
-    const actualDataLength = Math.max(0, Math.min(spec.length, maxWindowLength))
-    const requestedLength = Math.max(0, spec.length)
-    const startFromNewest = clampedStartFromNewest
     
-    // Validate requested length to prevent invalid array creation
-    if (requestedLength > 1e7) { // Reasonable upper bound
-      return this.getWindow({ startFromNewest: spec.startFromNewest, length: 1e7 })
+    if (this.cachedViewPortData !== null && 
+        this.cacheKey.writeIndex === currentKey.writeIndex &&
+        this.cacheKey.viewPortCursor === currentKey.viewPortCursor &&
+        this.cacheKey.viewPortSize === currentKey.viewPortSize &&
+        this.cacheKey.frozen === currentKey.frozen) {
+      return this.cachedViewPortData
     }
-
+    
+    // Cache miss - compute viewport data
+    this.cacheKey = currentKey
+    
+    // the view port size should never exceed the capacity
+    const viewPortSize = Math.min(this.viewPortSize, this.capacity)
+    // this is the rightmost index of the view port
+    const endPosition = this.viewPortCursor
+    // inclusive start and end positions
+    const startPosition = endPosition - (viewPortSize - 1)
+    
     const seriesViews: Float32Array[] = []
     let timesView: Float64Array
 
-    if (requestedLength === 0) {
+    if (startPosition > endPosition) {
       // Handle zero-length window case
-      for (let k = 0; k < s.buffers.length; k++) {
+      for (let k = 0; k < this.buffers.length; k++) {
         seriesViews[k] = new Float32Array(0)
       }
       timesView = new Float64Array(0)
-    } else if (actualDataLength === 0) {
-      // Handle case where no data is available - return arrays filled with NaN
-      for (let k = 0; k < s.buffers.length; k++) {
-        const paddedView = new Float32Array(requestedLength)
-        paddedView.fill(NaN)
-        seriesViews[k] = paddedView
-      }
-      timesView = new Float64Array(requestedLength)
-      timesView.fill(NaN)
     } else {
-      const ringStartCandidate = (len === capacity) ? s.writeIndex : len
-      const newestRingIndex = (ringStartCandidate - 1 + capacity) % capacity
-      const ringEnd = newestRingIndex
-      const ringStart = (ringEnd - (actualDataLength - 1) - startFromNewest + capacity * 2) % capacity
-
-      // Extract actual data
-      const actualSeriesData: Float32Array[] = []
-      let actualTimes: Float64Array
-
-      for (let k = 0; k < s.buffers.length; k++) {
-        const src = s.buffers[k]
-        if (ringStart <= ringEnd) {
-          const view = src.subarray(ringStart, ringEnd + 1)
-          actualSeriesData[k] = view
-        } else {
-          const head = src.subarray(ringStart)
-          const tail = src.subarray(0, ringEnd + 1)
-          const joined = new Float32Array(head.length + tail.length)
-          joined.set(head, 0)
-          joined.set(tail, head.length)
-          actualSeriesData[k] = joined
+      const length = endPosition - startPosition + 1
+      // Initialize arrays with NaN
+      for (let k = 0; k < this.series.length; k++) {
+        seriesViews[k] = new Float32Array(length).fill(NaN)
+      }
+      timesView = new Float64Array(length).fill(NaN)
+      
+      // Copy valid samples one by one, checking if they exist
+      for (let i = 0; i < length; i++) {
+        const sampleIndex = startPosition + i
+        // Only copy if this sample index has been written and hasn't been overwritten
+        if (sampleIndex >= 0 && sampleIndex < this.writeIndex && 
+            (this.writeIndex <= this.capacity || sampleIndex >= this.writeIndex - this.capacity)) {
+          const ringIndex = sampleIndex % this.capacity
+          for (let k = 0; k < this.series.length; k++) {
+            seriesViews[k][i] = this.buffers[k][ringIndex]
+          }
+          timesView[i] = this.times[ringIndex]
         }
-      }
-
-      // Extract actual times
-      if (ringStart <= ringEnd) {
-        actualTimes = s.times.subarray(ringStart, ringEnd + 1)
-      } else {
-        const head = s.times.subarray(ringStart)
-        const tail = s.times.subarray(0, ringEnd + 1)
-        actualTimes = new Float64Array(head.length + tail.length)
-        actualTimes.set(head, 0)
-        actualTimes.set(tail, head.length)
-      }
-
-      // Now pad to requested length if needed
-      for (let k = 0; k < s.buffers.length; k++) {
-        if (actualDataLength < requestedLength) {
-          const paddedView = new Float32Array(requestedLength)
-          paddedView.fill(NaN)
-          // Place actual data at the end (most recent position)
-          const offset = requestedLength - actualDataLength
-          paddedView.set(actualSeriesData[k], offset)
-          seriesViews[k] = paddedView
-        } else {
-          seriesViews[k] = actualSeriesData[k]
-        }
-      }
-
-      // Pad times similarly
-      if (actualDataLength < requestedLength) {
-        timesView = new Float64Array(requestedLength)
-        timesView.fill(NaN)
-        const offset = requestedLength - actualDataLength
-        timesView.set(actualTimes, offset)
-      } else {
-        timesView = actualTimes
+        // If sample doesn't exist or was overwritten, leave as NaN (already initialized)
       }
     }
 
-    // Use precomputed global min/max for better performance
-    let yMin = s.globalMin
-    let yMax = s.globalMax
-    
+    // Compute y-range from the current viewport window
+    let yMin = Number.POSITIVE_INFINITY
+    let yMax = Number.NEGATIVE_INFINITY
+    for (let k = 0; k < seriesViews.length; k++) {
+      const arr = seriesViews[k]
+      for (let i = 0; i < arr.length; i++) {
+        const v = arr[i]
+        if (Number.isFinite(v)) {
+          if (v < yMin) yMin = v
+          if (v > yMax) yMax = v
+        }
+      }
+    }
     if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
       yMin = -1; yMax = 1
     } else if (yMax === yMin) {
@@ -375,124 +253,79 @@ export class RingStore {
       yMax += pad; yMin -= pad
     }
 
-    const newestTotal = s.total - 1
-    const windowStartTotal = newestTotal - (requestedLength - 1) - startFromNewest
-
-    const anchors = s.anchors.filter(a => a.total >= windowStartTotal && a.total <= newestTotal)
-
-    return {
-      series: s.series,
+    const result: ViewPortData = {
+      series: this.series,
       getSeriesData: (id: number) => seriesViews[id] ?? new Float32Array(0),
-      length: requestedLength,
-      capacity,
       yMin, yMax,
       getTimes: () => timesView,
-      windowStartTotal,
-      anchors,
-      intendedWindowSize: s.windowSize,
+      viewPortCursor: this.viewPortCursor,
+      viewPortSize: this.viewPortSize
     }
+    
+    // Cache the result for future calls
+    this.cachedViewPortData = result
+    return result
   }
 
   // Viewport state management
-  setWindowSize(size: number): number {
-    const s = this.snapshot
-    const clampedSize = Math.max(1, Math.min(size, Math.max(1, s.length)))
-    s.windowSize = clampedSize
-    // Re-validate scroll position when window size changes
-    const bounds = this.calculateScrollBounds()
-    s.scrollPosition = clampScroll(s.scrollPosition, bounds)
-    // Update anchor stride when window size changes (target ~5 anchors)
-    const step = Math.max(1, Math.round(clampedSize / 5))
-    this.anchorEverySamples = step
-    this.recomputeAnchors()
+  setViewPortSize(size: number): number {
+    // cannot have a window size that is greater than the capacity
+    this.viewPortSize = Math.min(size, this.capacity)
+    // cannot have a window size that is less than 10
+    this.viewPortSize = Math.max(10, this.viewPortSize)
+    this.invalidateViewPortCache() // viewPortSize changed
     this.emit()
-    return clampedSize
+    return this.viewPortSize
   }
 
-  getWindowSize(): number {
-    return this.snapshot.windowSize
+  getViewPortSize(): number {
+    return this.viewPortSize
   }
 
-  setScrollPosition(position: number): number {
-    const s = this.snapshot
-    const bounds = this.calculateScrollBounds()
-    s.scrollPosition = clampScroll(position, bounds)
+  setViewPortCursor(position: number): number {
+    // cannot have a view port cursor that is less than 0
+    const rounded = Math.round(position)
+    const maxCursor = Math.max(0, Math.min(this.writeIndex - 1, this.capacity - 1))
+    this.viewPortCursor = Math.min(Math.max(0, rounded), maxCursor)
+    this.invalidateViewPortCache() // viewPortCursor changed
     this.emit()
-    return s.scrollPosition
+    return this.viewPortCursor
   }
 
-  getScrollPosition(): number {
-    return this.snapshot.scrollPosition
+  getViewPortCursor(): number {
+    return this.viewPortCursor
   }
 
-  adjustScrollPosition(delta: number): number {
-    return this.setScrollPosition(this.snapshot.scrollPosition + delta)
+  adjustViewPortCursor(delta: number): number {
+    return this.setViewPortCursor(this.viewPortCursor + delta)
   }
 
   setFrozen(frozen: boolean): void {
-    const s = this.snapshot
-    if (frozen && !s.frozen) {
-      // Entering frozen state - capture current total
-      s.freezeBaseTotal = s.total
-    }
-    s.frozen = frozen
+    this.frozen = frozen
     if (!frozen) {
-      // Exiting frozen state - reset scroll to valid range
-      this.setScrollPosition(s.scrollPosition)
+      // not frozen - set the view port cursor to the latest write index
+      this.setViewPortCursor(this.writeIndex - 1) // This calls invalidateViewPortCache() internally
+    } else {
+      this.invalidateViewPortCache() // frozen state changed
+      this.emit()
     }
-    this.emit()
   }
 
   getFrozen(): boolean {
-    return this.snapshot.frozen
-  }
-
-  private calculateScrollBounds() {
-    const s = this.snapshot
-    const deltaSize = s.frozen ? Math.max(0, s.total - s.freezeBaseTotal) : 0
-    return calculateScrollBounds(s.length, s.windowSize, deltaSize, s.frozen)
-  }
-
-  getCurrentWindow() {
-    const s = this.snapshot
-    const delta = s.frozen ? Math.max(0, s.total - s.freezeBaseTotal) : 0
-    const startFromNewest = calculateDataPosition({
-      uiStart: s.scrollPosition,
-      delta,
-      frozen: s.frozen
-    })
-    return this.getWindow({ startFromNewest, length: s.windowSize })
+    return this.frozen
   }
 
   // Zoom controls
   zoomByFactor(factor: number): void {
-    const s = this.snapshot
-    const currentLen = s.windowSize
+    const currentLen = this.viewPortSize
+    // cannot have a zoom factor that is less than 0.5 or more than 2
     const clampedFactor = Math.max(0.5, Math.min(2, factor))
+    // this is what we're aiming for
     const desired = Math.round(currentLen / clampedFactor)
-    const newWindowSize = Math.max(10, Math.min(s.length, desired))
-    
-    // Calculate center before zoom
-    const delta = s.frozen ? Math.max(0, s.total - s.freezeBaseTotal) : 0
-    const centerFromNewest = calculateDataPosition({
-      uiStart: s.scrollPosition,
-      delta,
-      frozen: s.frozen
-    }) + Math.floor(currentLen / 2)
-    
+    // cannot have a window size that is less than 10 or more than the capacity
+    const newWindowSize = Math.max(10, Math.min(this.capacity, desired))
     // Update window size and anchors
-    s.windowSize = newWindowSize
-    const step = Math.max(1, Math.round(newWindowSize / 5))
-    this.anchorEverySamples = step
-    this.recomputeAnchors()
-    
-    // Calculate new scroll position to maintain center
-    const newStartFromNewest = Math.max(0, centerFromNewest - Math.floor(newWindowSize / 2))
-    const newUiStart = newStartFromNewest - (s.frozen ? delta : 0)
-    const bounds = this.calculateScrollBounds()
-    s.scrollPosition = clampScroll(newUiStart, bounds)
-    
-    this.emit()
+    this.setViewPortSize(newWindowSize)
   }
 
   handleWheel(event: { deltaY: number, clientX: number }): void {
@@ -503,6 +336,10 @@ export class RingStore {
 
   // Momentum scrolling support
   private momentumState: { animationId: number | null } = { animationId: null }
+  
+  // Cached viewport data to avoid regenerating on every render
+  private cachedViewPortData: ViewPortData | null = null
+  private cacheKey = { writeIndex: -1, viewPortCursor: -1, viewPortSize: -1, frozen: false }
 
   startMomentum(velocity: number): void {
     this.stopMomentum()
@@ -526,7 +363,7 @@ export class RingStore {
       
       // Apply velocity scaled by time - same as old implementation
       const movement = currentVelocity * dt
-      this.adjustScrollPosition(movement)
+      this.adjustViewPortCursor(movement)
       this.momentumState.animationId = requestAnimationFrame(step)
     }
     
@@ -540,24 +377,15 @@ export class RingStore {
     }
   }
 
-  // Legacy getters
-  getTotal() { return this.snapshot.total }
-  getCapacity() { return this.snapshot.capacity }
-  getSeries() { return this.snapshot.series }
-  getMsPerSample() { return this.snapshot.emaMsPerSample ?? 0 }
-  getLength() { return this.snapshot.length }
-
   renameSeries(id: number, name: string) {
-    const s = this.snapshot
-    const target = s.series.find((m) => m.id === id)
+    const target = this.series.find((m) => m.id === id)
     if (!target) return
     target.name = name
     this.emit()
   }
 
   setSeriesColor(id: number, color: string) {
-    const s = this.snapshot
-    const target = s.series.find((m) => m.id === id)
+    const target = this.series.find((m) => m.id === id)
     if (!target) return
     target.color = color
     this.emit()

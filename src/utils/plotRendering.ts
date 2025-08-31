@@ -215,37 +215,53 @@ export function drawXAxis(
 ) {
   const times = snapshot.getTimes?.() ?? new Float64Array(0)
   if (times.length < 2) return
-  
-  const rightTime = times[times.length - 1]
-  const leftTime = times[0]
-  const windowMs = Math.max(1, rightTime - leftTime)
-  const xScale = snapshot.length > 1 ? chart.width / (snapshot.length - 1) : 1
-  
+
   ctx.strokeStyle = theme.plotGrid
   ctx.fillStyle = theme.textColor.trim() || '#e5e5e5'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial'
+
+  // Create stable tick marks anchored to sample indices
+  const targetTickCount = 5
+  const stepSize = Math.max(1, Math.floor(snapshot.viewPortSize / targetTickCount))
   
-  const anchors = snapshot.anchors || []
-  const startTotal = snapshot.windowStartTotal
+  // Calculate the absolute sample index range for the current viewport
+  const viewportStartSample = snapshot.viewPortCursor - snapshot.viewPortSize + 1
+  const viewportEndSample = snapshot.viewPortCursor
   
-  for (const anchor of anchors) {
-    const relativeIndex = anchor.total - startTotal
-    if (relativeIndex < 0 || relativeIndex >= snapshot.length) continue
+  // Find first stable tick position - align to stepSize grid
+  const firstTickSample = Math.ceil(viewportStartSample / stepSize) * stepSize
+  
+  const xScale = snapshot.viewPortSize > 1 ? chart.width / (snapshot.viewPortSize - 1) : 1
+  
+  ctx.beginPath()
+  
+  // Draw ticks at stable sample indices
+  for (let sampleIndex = firstTickSample; sampleIndex <= viewportEndSample; sampleIndex += stepSize) {
+    // Convert absolute sample index to viewport relative index (0 to viewPortSize-1)
+    const viewportIndex = sampleIndex - viewportStartSample
     
-    const x = Math.round(chart.x + relativeIndex * xScale) + 0.5
+    if (viewportIndex < 0 || viewportIndex >= snapshot.viewPortSize) continue
+    
+    // Check if we have valid time data at this index
+    if (viewportIndex >= times.length || !Number.isFinite(times[viewportIndex])) continue
+    
+    // Calculate screen position for this viewport index
+    const screenX = chart.x + viewportIndex * xScale
     
     // Draw tick mark
-    ctx.beginPath()
-    ctx.moveTo(x + 0.5, chart.y + chart.height)
-    ctx.lineTo(x + 0.5, chart.y + chart.height + 4)
-    ctx.stroke()
+    ctx.moveTo(screenX + 0.5, chart.y + chart.height)
+    ctx.lineTo(screenX + 0.5, chart.y + chart.height + 4)
     
-    // Draw label
-    const label = formatTimeLabel(anchor.time, rightTime, windowMs, timeMode)
-    ctx.fillText(label, x, chart.y + chart.height + 6)
+    // Draw label using the timestamp at this viewport index
+    const timestamp = times[viewportIndex]
+    const windowMs = Math.max(1, times[times.length - 1] - times[0])
+    const label = formatTimeLabel(timestamp, times[times.length - 1], windowMs, timeMode)
+    ctx.fillText(label, screenX, chart.y + chart.height + 6)
   }
+  
+  ctx.stroke()
 }
 
 /**
@@ -258,9 +274,9 @@ export function drawSeries(
   yMin: number,
   yMax: number
 ) {
-  if (snapshot.length === 0) return
+  if (snapshot.viewPortSize === 0) return
   
-  const xScale = snapshot.length > 1 ? chart.width / (snapshot.length - 1) : 1
+  const xScale = snapshot.viewPortSize > 1 ? chart.width / (snapshot.viewPortSize - 1) : 1
   const yScale = (yMax - yMin) !== 0 ? chart.height / (yMax - yMin) : 1
   
   // Clip to chart area to prevent drawing outside bounds
@@ -326,10 +342,10 @@ export function drawHoverCrosshair(
   hover: { x: number; y: number; sampleIndex: number }
 ) {
   const { sampleIndex } = hover
-  if (sampleIndex < 0 || sampleIndex >= snapshot.length) return
+  if (sampleIndex < 0 || sampleIndex >= snapshot.viewPortSize) return
   
   // Draw vertical line at sample position
-  const xScale = snapshot.length > 1 ? chart.width / (snapshot.length - 1) : 1
+  const xScale = snapshot.viewPortSize > 1 ? chart.width / (snapshot.viewPortSize - 1) : 1
   const lineX = chart.x + sampleIndex * xScale
   
   ctx.save()
@@ -356,7 +372,7 @@ export function drawHoverTooltip(
   hover: { x: number; y: number; sampleIndex: number }
 ) {
   const { sampleIndex } = hover
-  if (sampleIndex < 0 || sampleIndex >= snapshot.length) return
+  if (sampleIndex < 0 || sampleIndex >= snapshot.viewPortSize) return
   
   const times = snapshot.getTimes?.() ?? new Float64Array(0)
   if (sampleIndex >= times.length) return

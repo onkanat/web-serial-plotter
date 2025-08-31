@@ -64,7 +64,7 @@ export function useCanvasInteractions({
 
     const getSamplesPerPixel = () => {
       const snap = snapshotRef.current
-      const length = snap.length
+      const length = snap.viewPortSize
       if (length <= 1) return 0
       const width = canvas.clientWidth
       const leftAxis = 44

@@ -82,11 +82,6 @@ function App() {
     window.addEventListener('pointerup', onUp)
   }, [setStatsHeightPx])
 
-  // Initialize anchor settings based on window size (run once)
-  useEffect(() => {
-    store.setAnchorEveryFromWindow(store.getWindowSize())
-  }, [store])
-
   return (
     <div className="h-dvh flex flex-col bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100 overflow-hidden">
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-neutral-800">
@@ -130,7 +125,7 @@ function App() {
                 <span className="opacity-70">History</span>
                 <Input className="w-28" type="number" min={100} step={100} value={store.getCapacity()} onChange={(e) => {
                   const cap = Math.max(100, Math.floor(Number(e.target.value) || 0))
-                  store.setMaxHistory(cap)
+                  store.setCapacity(cap)
                 }} />
                 <span className="opacity-70">pts</span>
               </div>
@@ -153,7 +148,7 @@ function App() {
           style={{ gridTemplateRows: `minmax(0,1fr) 6px ${statsHeightPx}px` }}
         >
           {(() => {
-            const snap = store.getCurrentWindow()
+            const snap = store.getViewPortData()
             return (
               <div className="relative w-full h-full" ref={plotContainerRef}>
                 <PlotCanvas
@@ -173,7 +168,7 @@ function App() {
                     }
                   }}
                   onPanDelta={(delta) => {
-                    store.adjustScrollPosition(delta)
+                    store.setViewPortCursor(store.getViewPortCursor() + delta)
                   }}
                   onPanEnd={(endV) => {
                     store.startMomentum(endV)
@@ -188,7 +183,7 @@ function App() {
                     if (!store.getFrozen()) {
                       store.setFrozen(true)
                     } else {
-                      store.setScrollPosition(0)
+                      store.setViewPortCursor(0)
                       store.setFrozen(false)
                     }
                   }}>
@@ -232,12 +227,12 @@ function App() {
                   </Button>
                 </div>
                 {/* Legend overlay left if data present */}
-                {snap.length > 0 && (
+                {snap.viewPortSize > 0 && (
                   <div className="absolute top-2 left-2 pointer-events-auto">
                     <Legend />
                   </div>
                 )}
-                {snap.length === 0 && (
+                {snap.viewPortSize === 0 && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs opacity-50">
                     Connect a device or start test to begin plotting…
                   </div>
@@ -251,8 +246,8 @@ function App() {
           />
           <div className="overflow-auto">
             {(() => {
-              const snap = store.getCurrentWindow()
-              if (snap.length === 0) return null
+              const snap = store.getViewPortData()
+              if (snap.viewPortSize === 0) return null
               const savePng = () => {
                 const url = canvasRef.current?.exportPNG({ scale: 2, background: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#fff' })
                 if (!url) return

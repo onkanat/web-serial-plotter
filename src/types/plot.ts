@@ -16,14 +16,12 @@ export interface PlotSeries {
 export interface PlotSnapshot {
   series: PlotSeries[]
   getSeriesData: (seriesId: number) => Float32Array
-  length: number
-  capacity: number
   yMin: number
   yMax: number
   getTimes: () => Float64Array
-  windowStartTotal: number
-  anchors: { total: number; time: number }[]
-  intendedWindowSize: number
+  // these are used to hint that a redraw is needed
+  viewPortCursor: number
+  viewPortSize: number
 }
 
 

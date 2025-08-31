@@ -63,7 +63,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     if (!canvas) return null
     
     const snap = snapshotRef.current
-    if (snap.length === 0) return null
+    if (snap.viewPortSize === 0) return null
     
     const leftAxis = showYAxis ? 44 : 0
     const rightPadding = 8
@@ -74,10 +74,10 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     if (mouseX < chartX || mouseX > chartX + chartWidth) return null
     
     const relativeX = mouseX - chartX
-    const xScale = snap.length > 1 ? chartWidth / (snap.length - 1) : 1
+    const xScale = snap.viewPortSize > 1 ? chartWidth / (snap.viewPortSize - 1) : 1
     const sampleIndex = Math.round(relativeX / xScale)
     
-    return sampleIndex >= 0 && sampleIndex < snap.length ? sampleIndex : null
+    return sampleIndex >= 0 && sampleIndex < snap.viewPortSize ? sampleIndex : null
   }, [showYAxis])
 
   const draw = useCallback(() => {
@@ -87,7 +87,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     const snap = snapshotRef.current
     const yOv = yOverrideRef.current
 
-    const { length } = snap
+    const { viewPortSize } = snap
     const yMin = yOv ? yOv.min : snap.yMin
     const yMax = yOv ? yOv.max : snap.yMax
     const width = canvas.clientWidth
@@ -97,7 +97,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
     const chart = calculateChartBounds(width, height, showYAxis)
     const theme = getThemeColors()
 
-    if (length === 0) {
+    if (viewPortSize === 0) {
       // Just draw background and grid for empty state
       drawBackgroundAndGrid(ctx, width, height, chart, theme, [], yMin, yMax)
       return
@@ -218,7 +218,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
 
     const getSamplesPerPixel = () => {
       const snap = snapshotRef.current
-      const length = snap.length
+      const length = snap.viewPortSize
       if (length <= 1) return 0
       const width = canvas.clientWidth
       const leftAxis = 44
@@ -409,8 +409,8 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
   useEffect(() => {
     const prev = prevSnapshotRef.current
     const shouldRedraw = !prev || 
-      prev.length !== snapshot.length ||
-      prev.windowStartTotal !== snapshot.windowStartTotal ||
+      prev.viewPortCursor !== snapshot.viewPortCursor ||
+      prev.viewPortSize !== snapshot.viewPortSize ||
       prev.yMin !== snapshot.yMin ||
       prev.yMax !== snapshot.yMax ||
       prevYOverrideRef.current !== yOverride
