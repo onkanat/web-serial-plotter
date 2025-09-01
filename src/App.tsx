@@ -113,7 +113,7 @@ function App() {
           
           {/* Tab Content */}
           {activeTab === 'chart' ? (
-            <div className="flex-1 min-h-0 flex">
+            <div className="mt-4 flex-1 min-h-0 flex">
               <div
                 className="flex-1 min-h-0 grid"
                 ref={containerRef}
