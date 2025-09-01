@@ -16,7 +16,8 @@ const mockViewPortData: ViewPortData = {
   yMax: 50,
   getTimes: () => new Float64Array([1609459200000, 1609459260000, 1609459320000, 1609459380000]),
   viewPortCursor: 0,
-  viewPortSize: 4
+  viewPortSize: 4,
+  firstTimestamp: 1609459200000 // First timestamp ever received
 }
 
 const mockStore = {
@@ -26,6 +27,7 @@ const mockStore = {
   ],
   getCapacity: () => 5,
   writeIndex: 4,
+  firstTimestamp: 1609459200000, // First timestamp ever received
   times: new Float64Array([1609459200000, 1609459260000, 1609459320000, 1609459380000, NaN]),
   buffers: [
     new Float32Array([23.5, 24.0, 24.5, 25.0, NaN]),
@@ -110,7 +112,8 @@ describe('chartExport', () => {
       const emptyData: ViewPortData = {
         ...mockViewPortData,
         series: [],
-        getTimes: () => new Float64Array([])
+        getTimes: () => new Float64Array([]),
+        firstTimestamp: null
       }
       
       const result = exportVisibleChartDataAsCsv(emptyData)
@@ -137,7 +140,8 @@ describe('chartExport', () => {
     it('should handle store with no series', () => {
       const emptyStore = {
         ...mockStore,
-        getSeries: () => []
+        getSeries: () => [],
+        firstTimestamp: null
       }
       
       const result = exportAllChartDataAsCsv(emptyStore)
@@ -147,7 +151,8 @@ describe('chartExport', () => {
     it('should handle store with no data', () => {
       const emptyStore = {
         ...mockStore,
-        writeIndex: 0
+        writeIndex: 0,
+        firstTimestamp: null
       }
       
       const result = exportAllChartDataAsCsv(emptyStore)
@@ -167,9 +172,9 @@ describe('chartExport', () => {
         click: vi.fn()
       }
       
-      vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any)
-      vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any)
-      vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any)
+      vi.spyOn(document, 'createElement').mockReturnValue(mockLink as HTMLAnchorElement)
+      vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as Node)
+      vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as Node)
     })
 
     it('should export visible data and trigger download', () => {

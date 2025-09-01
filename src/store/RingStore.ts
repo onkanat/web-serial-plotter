@@ -8,6 +8,7 @@ export interface ViewPortData {
   getTimes: () => Float64Array
   viewPortCursor: number
   viewPortSize: number
+  firstTimestamp: number | null
 }
 
 /**
@@ -34,6 +35,8 @@ export class RingStore {
   // Incremental min/max tracking
   globalMin: number = Number.POSITIVE_INFINITY
   globalMax: number = Number.NEGATIVE_INFINITY
+  // Track the first timestamp ever received for relative time calculations
+  firstTimestamp: number | null = null
 
   private listeners = new Set<() => void>()
 
@@ -85,6 +88,8 @@ export class RingStore {
     // Incremental min/max tracking
     this.globalMin = Number.POSITIVE_INFINITY
     this.globalMax = Number.NEGATIVE_INFINITY
+    // Reset first timestamp
+    this.firstTimestamp = null
   }
 
   setCapacity(capacity: number) {
@@ -159,6 +164,11 @@ export class RingStore {
     }
     const now = Date.now()
     this.times[this.writeIndex % this.capacity] = now
+    
+    // Capture first timestamp ever received
+    if (this.firstTimestamp === null) {
+      this.firstTimestamp = now
+    }
     this.writeIndex++
     // if we're not frozen the view port cursor tracks the latest write index
     if (!this.frozen) {
@@ -300,7 +310,8 @@ export class RingStore {
       yMin, yMax,
       getTimes: () => timesView,
       viewPortCursor: this.viewPortCursor,
-      viewPortSize: this.viewPortSize
+      viewPortSize: this.viewPortSize,
+      firstTimestamp: this.firstTimestamp
     }
     
     // Cache the result for future calls

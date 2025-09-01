@@ -141,9 +141,9 @@ describe('consoleExport', () => {
         click: vi.fn()
       }
       
-      vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any)
-      vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any)
-      vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any)
+      vi.spyOn(document, 'createElement').mockReturnValue(mockLink as HTMLAnchorElement)
+      vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as Node)
+      vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as Node)
     })
 
     it('should create download link and trigger download', () => {

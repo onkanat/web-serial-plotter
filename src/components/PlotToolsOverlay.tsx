@@ -1,7 +1,7 @@
 import { forwardRef, useState, useRef, useEffect } from 'react'
 import Button from './ui/Button'
 import { PlayIcon, PauseIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, CameraIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
-import { exportChartData, type ChartExportOptions } from '../utils/chartExport'
+import type { ChartExportOptions } from '../utils/chartExport'
 
 interface Props {
   frozen: boolean

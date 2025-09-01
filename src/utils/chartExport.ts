@@ -1,4 +1,4 @@
-import type { ViewPortData } from '../store/RingStore'
+import type { ViewPortData, RingStore } from '../store/RingStore'
 import { downloadFile } from './consoleExport'
 
 export type ChartExportScope = 'visible' | 'all'
@@ -13,9 +13,10 @@ export function formatChartTimestamp(timestamp: number, format: 'iso' | 'relativ
   switch (format) {
     case 'iso':
       return new Date(timestamp).toISOString()
-    case 'relative':
+    case 'relative': {
       const relativeMs = baseTime ? timestamp - baseTime : timestamp
       return (relativeMs / 1000).toFixed(3) // Convert to seconds with 3 decimal places
+    }
     case 'timestamp':
       return timestamp.toString()
     default:
@@ -27,7 +28,7 @@ export function exportVisibleChartDataAsCsv(
   snapshot: ViewPortData, 
   options: ChartExportOptions = { scope: 'visible', includeTimestamps: true, timeFormat: 'iso' }
 ): string {
-  const { series, getTimes, getSeriesData } = snapshot
+  const { series, getTimes, getSeriesData, firstTimestamp } = snapshot
   const times = getTimes()
   
   if (series.length === 0 || times.length === 0) {
@@ -43,8 +44,8 @@ export function exportVisibleChartDataAsCsv(
   
   const csvLines = [headers.join(',')]
   
-  // Base time for relative timestamps (first timestamp)
-  const baseTime = options.timeFormat === 'relative' && times.length > 0 ? times[0] : undefined
+  // Base time for relative timestamps (first timestamp ever received)
+  const baseTime = options.timeFormat === 'relative' ? firstTimestamp : undefined
   
   // Export each data point
   for (let i = 0; i < times.length; i++) {
@@ -71,7 +72,7 @@ export function exportVisibleChartDataAsCsv(
 }
 
 export function exportAllChartDataAsCsv(
-  store: any, // RingStore instance
+  store: RingStore,
   options: ChartExportOptions = { scope: 'all', includeTimestamps: true, timeFormat: 'iso' }
 ): string {
   const series = store.getSeries()
@@ -85,7 +86,7 @@ export function exportAllChartDataAsCsv(
   if (options.includeTimestamps) {
     headers.push('Timestamp')
   }
-  headers.push(...series.map((s: any) => s.name))
+  headers.push(...series.map((s) => s.name))
   
   const csvLines = [headers.join(',')]
   
@@ -102,19 +103,8 @@ export function exportAllChartDataAsCsv(
   const startIndex = writeIndex > capacity ? writeIndex - capacity : 0
   const endIndex = writeIndex - 1
   
-  // Base time for relative timestamps
-  let baseTime: number | undefined
-  if (options.timeFormat === 'relative' && totalSamples > 0) {
-    // Find the first valid timestamp
-    for (let i = startIndex; i <= endIndex; i++) {
-      const ringIndex = i % capacity
-      const timestamp = store.times[ringIndex]
-      if (Number.isFinite(timestamp)) {
-        baseTime = timestamp
-        break
-      }
-    }
-  }
+  // Base time for relative timestamps (use first timestamp ever received)
+  const baseTime = options.timeFormat === 'relative' ? store.firstTimestamp : undefined
   
   // Export each data point in chronological order
   for (let i = startIndex; i <= endIndex; i++) {
@@ -145,7 +135,7 @@ export function exportAllChartDataAsCsv(
 
 export function exportChartData(
   snapshot: ViewPortData,
-  store: any,
+  store: RingStore,
   options: ChartExportOptions
 ) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)

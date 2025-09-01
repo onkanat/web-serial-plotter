@@ -175,7 +175,8 @@ export function formatTimeLabel(
   timestamp: number,
   rightTime: number,
   windowMs: number,
-  timeMode: 'absolute' | 'relative'
+  timeMode: 'absolute' | 'relative',
+  firstTimestamp?: number | null
 ): string {
   if (timeMode === 'absolute') {
     const date = new Date(timestamp)
@@ -187,8 +188,10 @@ export function formatTimeLabel(
     if (windowMs >= 60_000) return `${hh}:${mm}:${ss}`
     return `${hh}:${mm}:${ss}.${ms}`
   } else {
-    const deltaTime = rightTime - timestamp
-    const seconds = deltaTime / 1000
+    // Use first timestamp for consistent relative time, fallback to old behavior
+    const baseTime = (firstTimestamp != null) ? firstTimestamp : rightTime
+    const deltaTime = timestamp - baseTime
+    const seconds = Math.abs(deltaTime) / 1000
     return seconds >= 1 
       ? `${seconds.toFixed((seconds >= 10 || windowMs >= 60_000) ? 0 : 1)}s`
       : `${Math.round(seconds * 1000)}ms`
@@ -244,7 +247,7 @@ export function drawXAxis(
     // Draw label using the timestamp at this viewport index
     const timestamp = times[viewportIndex]
     const windowMs = Math.max(1, times[times.length - 1] - times[0])
-    const label = formatTimeLabel(timestamp, times[times.length - 1], windowMs, timeMode)
+    const label = formatTimeLabel(timestamp, times[times.length - 1], windowMs, timeMode, snapshot.firstTimestamp)
     ctx.fillText(label, screenX, chart.y + chart.height + 6)
   }
   ctx.beginPath()
@@ -398,7 +401,7 @@ export function drawHoverTooltip(
   // Format timestamp
   const rightTime = times[times.length - 1]
   const windowMs = Math.max(1, rightTime - times[0])
-  const timeLabel = formatTimeLabel(timestamp, rightTime, windowMs, timeMode)
+  const timeLabel = formatTimeLabel(timestamp, rightTime, windowMs, timeMode, snapshot.firstTimestamp)
   
   // Calculate tooltip content and size
   const lines = [`Time: ${timeLabel}`, ...values.map(v => `${v.name}: ${v.value.toFixed(3)}`)]
