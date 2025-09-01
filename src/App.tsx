@@ -37,6 +37,10 @@ function App() {
       disableBeacon: true,
     },
     {
+      target: '#tour-tab-console',
+      content: 'Open the console to view raw incoming lines and send messages.',
+    },
+    {
       target: '#tour-theme-toggle',
       content: 'Toggle between light and dark modes to match your environment.',
     },
@@ -56,7 +60,7 @@ function App() {
     const { status } = data
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setRunTour(false)
-      try { localStorage.setItem('wsp.tour.seen', '1') } catch {}
+      try { localStorage.setItem('wsp.tour.seen', '1') } catch { /* ignore persistence errors */ }
     }
   }
 
@@ -121,7 +125,7 @@ function App() {
     try {
       const seen = localStorage.getItem('wsp.tour.seen')
       if (!seen) setRunTour(true)
-    } catch {}
+    } catch { /* ignore persistence errors */ }
   }, [])
 
   // Removed modal save handler
@@ -151,7 +155,7 @@ function App() {
           <button
             id="tour-help"
             className="text-xs px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
-            onClick={() => { try { localStorage.removeItem('wsp.tour.seen') } catch {}; setRunTour(true) }}
+            onClick={() => { try { localStorage.removeItem('wsp.tour.seen') } catch { /* ignore */ }; setRunTour(true) }}
             aria-label="Show help tour"
             title="Show help tour"
           >

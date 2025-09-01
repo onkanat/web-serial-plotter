@@ -7,6 +7,7 @@ export default function TabNav({ activeTab, onTabChange }: TabNavProps) {
   return (
     <div className="flex border-b border-gray-200 dark:border-neutral-800">
       <button
+        id="tour-tab-chart"
         onClick={() => onTabChange('chart')}
         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
           activeTab === 'chart'
@@ -17,6 +18,7 @@ export default function TabNav({ activeTab, onTabChange }: TabNavProps) {
         Chart
       </button>
       <button
+        id="tour-tab-console"
         onClick={() => onTabChange('console')}
         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
           activeTab === 'console'
