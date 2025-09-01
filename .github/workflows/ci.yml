@@ -47,3 +47,8 @@ jobs:
           path: coverage
           retention-days: 7
 
+      - name: Purge Coveralls badge cache
+        if: always()
+        run: |
+          curl -X PURGE 'https://camo.githubusercontent.com/184fcdf698a1ae4778058392157f860a0ef80b033b2b128f5f6f7142c34a6399/68747470733a2f2f636f766572616c6c732e696f2f7265706f732f6769746875622f61746f6d696331342f7765622d73657269616c2d706c6f747465722f62616467652e7376673f6272616e63683d6d61696e'
+
