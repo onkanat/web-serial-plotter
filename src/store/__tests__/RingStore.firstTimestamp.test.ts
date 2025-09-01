@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { RingStore } from '../RingStore'
 
 describe('RingStore firstTimestamp', () => {
@@ -6,15 +6,15 @@ describe('RingStore firstTimestamp', () => {
   const mockNow = 1609459200000 // 2021-01-01 00:00:00 UTC
 
   beforeEach(() => {
-    // Mock Date.now() to return predictable values
-    vi.spyOn(Date, 'now')
-      .mockReturnValueOnce(mockNow)           // First call
-      .mockReturnValueOnce(mockNow + 1000)    // Second call  
-      .mockReturnValueOnce(mockNow + 2000)    // Third call
-      .mockReturnValue(mockNow + 3000)        // Subsequent calls
+    // Mock Date.now() to return consistent value
+    vi.spyOn(Date, 'now').mockReturnValue(mockNow)
 
     store = new RingStore(10, 5)
     store.setSeries(['temp', 'humidity'])
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('should capture firstTimestamp on first append', () => {

@@ -499,17 +499,30 @@ describe('RingStore', () => {
       for (let i = 0; i < 50; i++) {
         store.append([i, i * 2, i * 3])
       }
-      vi.useFakeTimers()
+      // TODO: Fix timer mocking for vitest 3.x
+      // vi.useFakeTimers()
       
-      // Mock requestAnimationFrame to execute callback immediately
+      // Mock requestAnimationFrame to execute callback synchronously for testing
       let rafId = 0
+      const rafCallbacks = new Map<number, () => void>()
+      
       globalThis.requestAnimationFrame = vi.fn((cb) => {
         rafId++
         const id = rafId
-        setTimeout(cb, 16.7)
+        rafCallbacks.set(id, cb)
+        // Execute synchronously for deterministic testing
+        setTimeout(() => {
+          if (rafCallbacks.has(id)) {
+            rafCallbacks.delete(id)
+            cb()
+          }
+        }, 0)
         return id
       })
-      globalThis.cancelAnimationFrame = vi.fn()
+      
+      globalThis.cancelAnimationFrame = vi.fn((id) => {
+        rafCallbacks.delete(id)
+      })
       // Mock only the methods we need
       Object.defineProperty(globalThis, 'performance', {
         value: { now: vi.fn(() => Date.now()) },
@@ -519,13 +532,23 @@ describe('RingStore', () => {
     })
 
     afterEach(() => {
-      vi.useRealTimers()
+      // TODO: Fix timer mocking for vitest 3.x
+      // vi.useRealTimers()
+      
+      // Stop momentum FIRST to cancel any pending animations
       store.stopMomentum()
-      // Clean up mocked globals
-      const global = globalThis as Record<string, unknown>
-      delete global.requestAnimationFrame
-      delete global.cancelAnimationFrame
-      delete global.performance
+      
+      // Give a moment for any pending timers to clear
+      return new Promise(resolve => {
+        setTimeout(() => {
+          // Clean up mocked globals
+          const global = globalThis as Record<string, unknown>
+          delete global.requestAnimationFrame
+          delete global.cancelAnimationFrame
+          delete global.performance
+          resolve(undefined)
+        }, 100)
+      })
     })
 
     it('should start momentum with valid velocity', () => {
