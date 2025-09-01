@@ -6,7 +6,6 @@ import * as htmlToImage from 'html-to-image'
 
 interface Props {
   snapshot: PlotSnapshot
-  onScreenshot?: () => void
 }
 
 type SeriesStats = {

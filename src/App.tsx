@@ -1,19 +1,17 @@
 import './App.css'
 import Header from './components/Header'
 import ThemeToggle from './components/ThemeToggle'
+import ScaleToolbar from './components/ScaleToolbar'
 import PlotCanvas, { type PlotCanvasHandle } from './components/PlotCanvas'
-import Button from './components/ui/Button'
-import Input from './components/ui/Input'
-import Checkbox from './components/ui/Checkbox'
-import Select from './components/ui/Select'
 // GeneratorPanel removed - now integrated into connect modal
 import StatsPanel from './components/StatsPanel'
 import { useCallback, useRef, useState } from 'react'
 import { useDataConnection } from './hooks/useDataConnection'
 import { useDataStore } from './store/dataStore'
 import Legend from './components/Legend'
-import { CameraIcon, PauseIcon, PlayIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon } from '@heroicons/react/24/outline'
-import * as htmlToImage from 'html-to-image'
+// icons used within PlotToolsOverlay; no direct use here
+import { captureElementPng, downloadDataUrlPng } from './utils/screenshot'
+import PlotToolsOverlay from './components/PlotToolsOverlay'
 
 function App() {
   const store = useDataStore()
@@ -47,6 +45,9 @@ function App() {
   const plotContainerRef = useRef<HTMLDivElement | null>(null)
   const toolsRef = useRef<HTMLDivElement | null>(null)
   const [statsHeightPx, setStatsHeightPx] = useState(240)
+
+  // Compute a single viewport snapshot per render to reuse across sections
+  const snap = store.getViewPortData()
 
   const startDragResize = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
@@ -84,51 +85,28 @@ function App() {
 
       <main className="flex-1 w-full px-4 py-3 flex flex-col gap-3 min-h-0 overflow-hidden">
         <div className="flex items-center justify-between">
-          <div /> {/* Empty div to maintain layout spacing */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs opacity-70">Scale</span>
-            {/* inline scale controls to keep UI compact */}
-            <div className="flex items-center gap-3 text-sm">
-              <label className="flex items-center gap-2">
-                <Checkbox checked={autoscale} onChange={(e) => setAutoscale(e.target.checked)} />
-                <span className="opacity-80">Autoscale Y</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="opacity-70">Y min</span>
-                <Input className="w-24" type="number" value={manualMinInput} onChange={(e) => setManualMinInput(e.target.value)} disabled={autoscale} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="opacity-70">Y max</span>
-                <Input className="w-24" type="number" value={manualMaxInput} onChange={(e) => setManualMaxInput(e.target.value)} disabled={autoscale} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="opacity-70">History</span>
-                <Input className="w-28" type="number" min={100} step={100} value={store.getCapacity()} onChange={(e) => {
-                  const cap = Math.max(100, Math.floor(Number(e.target.value) || 0))
-                  store.setCapacity(cap)
-                }} />
-                <span className="opacity-70">pts</span>
-              </div>
-              <div className="flex items-center gap-2 pl-4">
-                <span className="opacity-70">Time</span>
-                <Select value={timeMode} onChange={(e) => setTimeMode(e.target.value as 'absolute' | 'relative')}>
-                  <option value="absolute">Absolute</option>
-                  <option value="relative">Relative</option>
-                </Select>
-              </div>
-            </div>
-          </div>
+          <div />
+          <ScaleToolbar
+            autoscale={autoscale}
+            manualMinInput={manualMinInput}
+            manualMaxInput={manualMaxInput}
+            capacity={store.getCapacity()}
+            timeMode={timeMode}
+            onChange={{
+              setAutoscale,
+              setManualMinInput,
+              setManualMaxInput,
+              setCapacity: (v) => store.setCapacity(v),
+              setTimeMode,
+            }}
+          />
         </div>
-
-        {/* Legend moved into overlay on plot */}
-
         <div
           className="flex-1 min-h-0 grid"
           ref={containerRef}
           style={{ gridTemplateRows: `minmax(0,1fr) 6px ${statsHeightPx}px` }}
         >
           {(() => {
-            const snap = store.getViewPortData()
             return (
               <div className="relative w-full h-full" ref={plotContainerRef}>
                 <PlotCanvas
@@ -156,9 +134,10 @@ function App() {
                   onZoomFactor={(factor) => store.zoomByFactor(factor)}
                   showHoverTooltip={true}
                 />
-                {/* Tools overlay top-right */}
-                <div className="absolute top-2 right-2 flex items-center gap-2 pointer-events-auto" ref={toolsRef}>
-                  <Button size="sm" variant="neutral" aria-label={store.getFrozen() ? 'Play' : 'Pause'} title={store.getFrozen() ? 'Play' : 'Pause'} onClick={() => {
+                <PlotToolsOverlay
+                  ref={toolsRef}
+                  frozen={store.getFrozen()}
+                  onToggleFrozen={() => {
                     store.stopMomentum()
                     if (!store.getFrozen()) {
                       store.setFrozen(true)
@@ -166,46 +145,17 @@ function App() {
                       store.setViewPortCursor(0)
                       store.setFrozen(false)
                     }
-                  }}>
-                    {store.getFrozen() ? (
-                      <PlayIcon className="w-5 h-5" />
-                    ) : (
-                      <PauseIcon className="w-5 h-5" />
-                    )}
-                  </Button>
-                  <Button size="sm" variant="neutral" aria-label="Zoom in" title="Zoom in" onClick={() => store.zoomByFactor(1.25)}>
-                    <MagnifyingGlassPlusIcon className="w-5 h-5" />
-                  </Button>
-                  <Button size="sm" variant="neutral" aria-label="Zoom out" title="Zoom out" onClick={() => store.zoomByFactor(0.8)}>
-                    <MagnifyingGlassMinusIcon className="w-5 h-5" />
-                  </Button>
-                  <Button size="sm" variant="neutral" aria-label="Save PNG" title="Save PNG" onClick={async () => {
+                  }}
+                  onZoomIn={() => store.zoomByFactor(1.25)}
+                  onZoomOut={() => store.zoomByFactor(0.8)}
+                  onSavePng={async () => {
                     const node = plotContainerRef.current
                     if (!node) return
                     const bg = getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#fff'
-                    const prevPadding = node.style.padding
-                    const prevToolsVisibility = toolsRef.current?.style.visibility || ''
-                    try {
-                      node.style.padding = '12px'
-                      if (toolsRef.current) toolsRef.current.style.visibility = 'hidden'
-                      const dataUrl = await htmlToImage.toPng(node, {
-                        pixelRatio: 2,
-                        backgroundColor: bg.trim() || '#fff',
-                      })
-                      const a = document.createElement('a')
-                      a.href = dataUrl
-                      a.download = `plot-${Date.now()}.png`
-                      document.body.appendChild(a)
-                      a.click()
-                      a.remove()
-                    } finally {
-                      node.style.padding = prevPadding
-                      if (toolsRef.current) toolsRef.current.style.visibility = prevToolsVisibility
-                    }
-                  }}>
-                    <CameraIcon className="w-5 h-5" />
-                  </Button>
-                </div>
+                    const dataUrl = await captureElementPng(node, { pixelRatio: 2, backgroundColor: bg.trim() || '#fff', paddingPx: 12, temporarilyHide: toolsRef.current ? [toolsRef.current] : [] })
+                    downloadDataUrlPng(dataUrl, `plot-${Date.now()}.png`)
+                  }}
+                />
                 {/* Legend overlay bottom-right if data present */}
                 {snap.viewPortSize > 0 && (
                   <div className="absolute bottom-8 right-2 pointer-events-auto">
@@ -225,21 +175,7 @@ function App() {
             onPointerDown={startDragResize}
           />
           <div className="overflow-auto">
-            {(() => {
-              const snap = store.getViewPortData()
-              if (snap.viewPortSize === 0) return null
-              const savePng = () => {
-                const url = canvasRef.current?.exportPNG({ scale: 2, background: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#fff' })
-                if (!url) return
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `plot-${Date.now()}.png`
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-              }
-              return <StatsPanel snapshot={snap} onScreenshot={savePng} />
-            })()}
+            {snap.viewPortSize === 0 ? null : <StatsPanel snapshot={snap} />}
           </div>
         </div>
         {/* Removed old bottom screenshot button; use overlay or per-card actions */}

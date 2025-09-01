@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
+import { calculateDistance, computeSamplesPerPixel, updateVelocityEstimate } from './canvasUtils'
 import type { PlotSnapshot } from '../types/plot'
 
 interface UseCanvasInteractionsParams {
-  canvasRef: React.RefObject<HTMLCanvasElement>
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
   snapshot: PlotSnapshot
   onPanStart?: () => void
   onPanDelta?: (deltaSamples: number) => void
@@ -62,30 +63,15 @@ export function useCanvasInteractions({
       canvas.style.cursor = isDragging ? 'grabbing' : 'grab'
     }
 
-    const getSamplesPerPixel = () => {
-      const snap = snapshotRef.current
-      const length = snap.viewPortSize
-      if (length <= 1) return 0
-      const width = canvas.clientWidth
-      const leftAxis = 44
-      const rightPadding = 8
-      const chartWidth = Math.max(1, width - leftAxis - rightPadding)
-      return (length - 1) / chartWidth
-    }
+    const getSamplesPerPixel = () => computeSamplesPerPixel(canvas.clientWidth, snapshotRef.current.viewPortSize)
 
-    const calculateDistance = (a: { x: number; y: number }, b: { x: number; y: number }) => {
-      const dx = a.x - b.x
-      const dy = a.y - b.y
-      return Math.hypot(dx, dy)
-    }
+    // geometry utils imported from canvasUtils
 
     const updateVelocity = (deltaX: number, timestamp: number) => {
       const samplesPerPixel = getSamplesPerPixel()
-      const deltaTime = Math.max(1, timestamp - (lastTimestamp || timestamp))
-      lastTimestamp = timestamp
-      const rawSamples = deltaX * samplesPerPixel
-      const instantVelocity = rawSamples / deltaTime
-      velocityEstimate = 0.8 * velocityEstimate + 0.2 * instantVelocity
+      const r = updateVelocityEstimate(velocityEstimate, deltaX, timestamp, lastTimestamp, samplesPerPixel)
+      velocityEstimate = r.velocity
+      lastTimestamp = r.lastTimestamp
     }
 
     const handlePanDelta = (deltaX: number, timestamp: number) => {

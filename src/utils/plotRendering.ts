@@ -124,14 +124,6 @@ export function drawBackgroundAndGrid(
   ctx.strokeStyle = theme.plotGrid
   ctx.lineWidth = 1
   
-  // Vertical grid lines (fixed every 80px)
-  for (let x = chart.x; x <= chart.x + chart.width; x += 80) {
-    ctx.beginPath()
-    ctx.moveTo(x + 0.5, chart.y)
-    ctx.lineTo(x + 0.5, chart.y + chart.height)
-    ctx.stroke()
-  }
-  
   // Horizontal grid lines at Y tick positions
   for (const tickValue of yTicks) {
     const y = chart.y + chart.height - (tickValue - yMin) * yScale
@@ -217,6 +209,7 @@ export function drawXAxis(
   if (times.length < 2) return
 
   ctx.strokeStyle = theme.plotGrid
+  ctx.lineWidth = 1
   ctx.fillStyle = theme.textColor.trim() || '#e5e5e5'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
@@ -234,9 +227,7 @@ export function drawXAxis(
   const firstTickSample = Math.ceil(viewportStartSample / stepSize) * stepSize
   
   const xScale = snapshot.viewPortSize > 1 ? chart.width / (snapshot.viewPortSize - 1) : 1
-  
-  ctx.beginPath()
-  
+    
   // Draw ticks at stable sample indices
   for (let sampleIndex = firstTickSample; sampleIndex <= viewportEndSample; sampleIndex += stepSize) {
     // Convert absolute sample index to viewport relative index (0 to viewPortSize-1)
@@ -250,17 +241,27 @@ export function drawXAxis(
     // Calculate screen position for this viewport index
     const screenX = chart.x + viewportIndex * xScale
     
-    // Draw tick mark
-    ctx.moveTo(screenX + 0.5, chart.y + chart.height)
-    ctx.lineTo(screenX + 0.5, chart.y + chart.height + 4)
-    
     // Draw label using the timestamp at this viewport index
     const timestamp = times[viewportIndex]
     const windowMs = Math.max(1, times[times.length - 1] - times[0])
     const label = formatTimeLabel(timestamp, times[times.length - 1], windowMs, timeMode)
     ctx.fillText(label, screenX, chart.y + chart.height + 6)
   }
-  
+  ctx.beginPath()
+  for (let sampleIndex = firstTickSample; sampleIndex <= viewportEndSample; sampleIndex += stepSize) {
+    // Convert absolute sample index to viewport relative index (0 to viewPortSize-1)
+    const viewportIndex = sampleIndex - viewportStartSample
+    
+    if (viewportIndex < 0 || viewportIndex >= snapshot.viewPortSize) continue
+    
+    // Check if we have valid time data at this index
+    if (viewportIndex >= times.length || !Number.isFinite(times[viewportIndex])) continue
+    
+    // Calculate screen position for this viewport index
+    const screenX = chart.x + viewportIndex * xScale
+    ctx.moveTo(screenX + 0.5, chart.y)
+    ctx.lineTo(screenX + 0.5, chart.y + chart.height)
+  }
   ctx.stroke()
 }
 
