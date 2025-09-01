@@ -22,13 +22,16 @@ Your support helps maintain and improve this tool for the entire community!
 
 ## Status
 
-**Ready for testing** - Core functionality is complete. The application successfully handles real-time serial data plotting. We now need people to test it and provide feedback.
+**Production Ready** - Core functionality is complete and stable. The application successfully handles real-time serial data plotting with professional-grade performance and user experience.
 
 ## Current Features
 
 ✅ **Real-time Plotting**
 - Multi-series plotting from CSV/space/tab-separated serial data
 - Automatic series detection from header lines (e.g., `# time ax ay az`)
+- High-performance ring buffer with configurable history (up to 100K samples)
+- Smooth 60 FPS rendering with HTML5 Canvas
+- Dynamic series adjustment (automatically adds/removes series based on data)
 
 ✅ **Interactive Controls**
 - Mouse/touch pan and zoom with momentum scrolling
@@ -41,29 +44,39 @@ Your support helps maintain and improve this tool for the entire community!
 - Real-time statistics: min/max/mean/median/stddev
 - Live histograms for each data series
 - Configurable time display (absolute/relative)
+- Sample rate monitoring
+- Hover tooltips with precise values and timestamps
 
 ✅ **Channel Management**
 - Series renaming and color customization
 - Interactive legend with click-to-edit
 - Up to 8 default color themes
+- Dynamic series creation based on incoming data
 
 ✅ **Export & Testing**
 - PNG screenshot export (plot + individual stats cards)
-- CSV session export/import
+- CSV data export with multiple options:
+  - Export visible data or all stored data
+  - Multiple timestamp formats (ISO, relative, raw)
+  - Configurable time reference (session start)
 - Built-in signal generator for testing (sine, noise, ramp)
 - Configurable sample rates and amplitudes
 
 ✅ **Serial Console**
-- Send messages to serial device
-- Receive messages from serial device
-- Export messages to text
-
+- Dual-tab interface (Chart/Console views)
+- Bidirectional communication with serial devices
+- Send text commands to devices
+- View raw incoming/outgoing data streams
+- Message export in multiple formats (TXT, CSV, JSON)
+- Configurable message history (10-10,000 messages)
+- Real-time message timestamps
 
 ✅ **User Experience**
-- Dark/light theme toggle
-- Responsive design
-- Browser-based (no drivers required)
-- Real-time connection status
+- Dark/light theme toggle with system preference detection
+- Responsive design optimized for various screen sizes
+- Browser-based (no drivers or installations required)
+- Real-time connection status with visual indicators
+- Professional footer with project links
 
 ## Quick Start (development)
 
@@ -100,10 +113,12 @@ Your device should send lines of numeric data:
 
 ### Interactive Controls
 - **Pan**: Click and drag on the plot
-- **Zoom**: Ctrl+wheel or pinch on touch devices
+- **Zoom**: Ctrl+wheel or pinch on touch devices  
 - **Freeze**: Click pause button to stop live updates
+- **Export**: Use download button for CSV data export (visible or all data)
 - **Screenshot**: Use camera button to export PNG images
 - **Series**: Click legend entries to edit names and colors
+- **Console**: Switch to Console tab to send commands and view raw data
 
 ### Built-in Signal Generator
 For testing without hardware:
@@ -113,10 +128,17 @@ For testing without hardware:
 4. Data will appear as if from a real device
 
 ### Statistics Panel
-The bottom panel shows real-time analytics:
+The bottom panel (Chart tab) shows real-time analytics:
 - **Statistics**: min/max/mean/median/standard deviation
-- **Histogram**: Live distribution visualization
-- **Export**: Individual screenshot per data series
+- **Histogram**: Live distribution visualization with sample count
+- **Export**: Individual PNG screenshot per data series
+
+### Console Panel
+The Console tab provides direct device communication:
+- **Send Commands**: Type and send text messages to your device
+- **Message History**: View all incoming and outgoing messages with timestamps
+- **Export Options**: Save console logs as TXT, CSV, or JSON files
+- **Configurable Buffer**: Adjust message history size (10-10,000 messages)
 
 ## Browser Support
 
@@ -158,20 +180,30 @@ Firefox and Safari do not support Web Serial at this time. On desktop, use Chrom
 │  ├─ components/           # React components
 │  │  ├─ PlotCanvas.tsx     # High-performance canvas renderer
 │  │  ├─ Header.tsx         # Connection controls
+│  │  ├─ TabNav.tsx         # Chart/Console tab navigation
+│  │  ├─ SerialConsole.tsx  # Console interface
+│  │  ├─ ConsoleLog.tsx     # Message display component
+│  │  ├─ ConsoleInput.tsx   # Command input component
 │  │  ├─ Legend.tsx         # Interactive series legend
 │  │  ├─ StatsPanel.tsx     # Real-time statistics
-│  │  ├─ GeneratorPanel.tsx # Test signal generator
+│  │  ├─ PlotToolsOverlay.tsx # Chart controls overlay
+│  │  ├─ Footer.tsx         # Project links footer
 │  │  └─ ui/               # Reusable UI components
 │  ├─ hooks/               # Custom React hooks
 │  │  ├─ useSerial.ts      # Web Serial API integration
-│  │  ├─ useZoomControls.ts # Zoom interaction logic
-│  │  └─ useMomentumScrolling.ts # Physics-based scrolling
+│  │  ├─ useDataConnection.ts # Connection management
+│  │  ├─ useConsoleStore.ts # Console data management
+│  │  └─ useSignalGenerator.ts # Test signal generation
 │  ├─ store/               # Data management
 │  │  ├─ RingStore.ts      # High-performance ring buffer
+│  │  ├─ ConsoleStore.ts   # Console message storage
 │  │  └─ dataStore.tsx     # React store integration
 │  ├─ utils/               # Utility functions
-│  │  ├─ coordinates.ts    # Coordinate transformations
-│  │  └─ plotRendering.ts  # Canvas rendering utilities
+│  │  ├─ plotRendering.ts  # Canvas rendering utilities
+│  │  ├─ chartExport.ts    # CSV data export
+│  │  ├─ consoleExport.ts  # Console message export
+│  │  ├─ canvasInteractions.ts # Mouse/touch handling
+│  │  └─ screenshot.ts     # PNG export utilities
 │  └─ types/               # TypeScript definitions
 ├─ public/                 # Static assets
 ├─ vite.config.ts          # Build configuration
@@ -180,14 +212,16 @@ Firefox and Safari do not support Web Serial at this time. On desktop, use Chrom
 
 ## Roadmap
 
-**Planned Enhancements:**
-- CSV data export functionality
-- Session save/load (plot configurations)
+**Potential Future Enhancements:**
+- Session save/load (plot configurations and data)
 - Binary protocol support (CBOR/SLIP/COBS)
+- Advanced data processing filters (moving average, FFT)
 - Cursor/crosshair tools for precise measurements
-- Advanced data processing filters
 - Keyboard navigation and accessibility improvements
 - Multiple device connection support
+- Data recording/playback functionality
+- Custom baud rate input
+- Advanced trigger conditions for data capture
 
 ## Contributing
 
