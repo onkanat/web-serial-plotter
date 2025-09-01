@@ -15,6 +15,7 @@ export function ThemeToggle() {
 
   return (
     <Button
+      id="tour-theme-toggle"
       size="sm"
       aria-label="Toggle theme"
       title="Toggle light/dark theme"

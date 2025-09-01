@@ -35,7 +35,7 @@ const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOve
   return (
     <div className="flex items-center gap-2" ref={ref}>
       <Tooltip label={frozen ? 'Resume (play)' : 'Freeze (pause)'}>
-        <Button size="sm" variant="neutral" aria-label={frozen ? 'Play' : 'Pause'} onClick={onToggleFrozen}>
+        <Button id="tour-tool-freeze" size="sm" variant="neutral" aria-label={frozen ? 'Play' : 'Pause'} onClick={onToggleFrozen}>
           {frozen ? (
             <PlayIcon className="w-5 h-5" />
           ) : (
@@ -44,12 +44,12 @@ const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOve
         </Button>
       </Tooltip>
       <Tooltip label="Zoom in">
-        <Button size="sm" variant="neutral" aria-label="Zoom in" onClick={onZoomIn}>
+        <Button id="tour-tool-zoomin" size="sm" variant="neutral" aria-label="Zoom in" onClick={onZoomIn}>
           <MagnifyingGlassPlusIcon className="w-5 h-5" />
         </Button>
       </Tooltip>
       <Tooltip label="Zoom out">
-        <Button size="sm" variant="neutral" aria-label="Zoom out" onClick={onZoomOut}>
+        <Button id="tour-tool-zoomout" size="sm" variant="neutral" aria-label="Zoom out" onClick={onZoomOut}>
           <MagnifyingGlassMinusIcon className="w-5 h-5" />
         </Button>
       </Tooltip>
@@ -58,6 +58,7 @@ const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOve
       <div className="relative" ref={exportMenuRef}>
         <Tooltip label="Export CSV">
           <Button 
+            id="tour-tool-export"
             size="sm" 
             variant="neutral" 
             aria-label="Export CSV" 
@@ -114,13 +115,13 @@ const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOve
       </div>
       
       <Tooltip label="Save PNG">
-        <Button size="sm" variant="neutral" aria-label="Save PNG" onClick={onSavePng}>
+        <Button id="tour-tool-savepng" size="sm" variant="neutral" aria-label="Save PNG" onClick={onSavePng}>
           <CameraIcon className="w-5 h-5" />
         </Button>
       </Tooltip>
 
       <Tooltip label="Settings">
-        <Button size="sm" variant="neutral" aria-label="Settings" onClick={onShowSettings}>
+        <Button id="tour-tool-settings" size="sm" variant="neutral" aria-label="Settings" onClick={onShowSettings}>
           <CogIcon className="w-5 h-5" />
         </Button>
       </Tooltip>

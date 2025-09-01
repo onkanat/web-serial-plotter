@@ -5,7 +5,7 @@ import PlotCanvas, { type PlotCanvasHandle } from './components/PlotCanvas'
 import SettingsPanel from './components/SettingsPanel'
 // GeneratorPanel removed - now integrated into connect modal
 import StatsPanel from './components/StatsPanel'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataConnection } from './hooks/useDataConnection'
 import { useDataStore } from './store/dataStore'
 import { useConsoleStore } from './hooks/useConsoleStore'
@@ -17,6 +17,7 @@ import TabNav from './components/TabNav'
 import SerialConsole from './components/SerialConsole'
 import Footer from './components/Footer'
 import { exportChartData, type ChartExportOptions } from './utils/chartExport'
+import Joyride, { STATUS, type CallBackProps, type Step } from 'react-joyride'
 
 function App() {
   const store = useDataStore()
@@ -28,6 +29,36 @@ function App() {
   const [timeMode, setTimeMode] = useState<'absolute' | 'relative'>('absolute')
   const [activeTab, setActiveTab] = useState<'chart' | 'console'>('chart')
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
+  const [runTour, setRunTour] = useState(false)
+  const tourSteps: Step[] = [
+    {
+      target: '#tour-connect-button',
+      content: 'Click here to connect to a serial device or start the signal generator.',
+      disableBeacon: true,
+    },
+    {
+      target: '#tour-theme-toggle',
+      content: 'Toggle between light and dark modes to match your environment.',
+    },
+    {
+      target: '#tour-plot-area',
+      content: 'Drag to pan. Use the mouse wheel with Ctrl (or pinch on touch) to zoom.',
+    },
+    { target: '#tour-tool-freeze', content: 'Freeze/resume the live plot.' },
+    { target: '#tour-tool-zoomin', content: 'Zoom in on the time axis.' },
+    { target: '#tour-tool-zoomout', content: 'Zoom out on the time axis.' },
+    { target: '#tour-tool-export', content: 'Export visible or all data as CSV.' },
+    { target: '#tour-tool-savepng', content: 'Save a PNG snapshot of the plot.' },
+    { target: '#tour-tool-settings', content: 'Open settings to adjust scale, history, and time mode.' },
+  ]
+
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { status } = data
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      setRunTour(false)
+      try { localStorage.setItem('wsp.tour.seen', '1') } catch {}
+    }
+  }
 
   const handleIncomingLine = useCallback((line: string) => {
     setLastLine(line)
@@ -86,11 +117,27 @@ function App() {
   }, [snap, store])
 
   // settings toggled inline via toolbar button
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem('wsp.tour.seen')
+      if (!seen) setRunTour(true)
+    } catch {}
+  }, [])
 
   // Removed modal save handler
 
   return (
     <div className="h-dvh flex flex-col bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100 overflow-hidden">
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        continuous
+        showProgress
+        showSkipButton
+        disableOverlayClose
+        callback={handleJoyrideCallback}
+        styles={{ options: { primaryColor: '#2563eb', zIndex: 10000 } }}
+      />
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-neutral-800">
         <Header
           connectionState={dataConnection.state}
@@ -99,8 +146,17 @@ function App() {
           onDisconnect={dataConnection.disconnect}
           generatorConfig={dataConnection.generatorConfig}
         />
-        <div className="pr-4">
+        <div className="pr-4 flex items-center gap-2">
           <ThemeToggle />
+          <button
+            id="tour-help"
+            className="text-xs px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+            onClick={() => { try { localStorage.removeItem('wsp.tour.seen') } catch {}; setRunTour(true) }}
+            aria-label="Show help tour"
+            title="Show help tour"
+          >
+            Help
+          </button>
         </div>
       </div>
 

@@ -67,6 +67,7 @@ export function Header({
             This project is a work in progress. Found a bug or have an idea? <a className="underline hover:no-underline text-blue-600 dark:text-blue-400" href="https://github.com/atomic14/web-serial-plotter/issues" target="_blank" rel="noopener noreferrer">Open an issue on GitHub</a>.
           </div>
           <Button 
+            id="tour-connect-button"
             variant={getButtonVariant(connectionState)}
             disabled={connectionState.isConnecting}
             onClick={handleButtonClick}

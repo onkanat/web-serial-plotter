@@ -258,7 +258,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
   }))
 
   return (
-    <canvas ref={canvasRef} className="w-full h-full rounded-lg block" />
+    <canvas ref={canvasRef} id="tour-plot-area" className="w-full h-full rounded-lg block" />
   )
 })
 
