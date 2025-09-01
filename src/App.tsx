@@ -8,21 +8,32 @@ import StatsPanel from './components/StatsPanel'
 import { useCallback, useRef, useState } from 'react'
 import { useDataConnection } from './hooks/useDataConnection'
 import { useDataStore } from './store/dataStore'
+import { useConsoleStore } from './hooks/useConsoleStore'
 import Legend from './components/Legend'
 // icons used within PlotToolsOverlay; no direct use here
 import { captureElementPng, downloadDataUrlPng } from './utils/screenshot'
 import PlotToolsOverlay from './components/PlotToolsOverlay'
+import TabNav from './components/TabNav'
+import SerialConsole from './components/SerialConsole'
+import { exportChartData, type ChartExportOptions } from './utils/chartExport'
 
 function App() {
   const store = useDataStore()
+  const consoleStore = useConsoleStore()
   const [lastLine, setLastLine] = useState<string>('')
   const [autoscale, setAutoscale] = useState(true)
   const [manualMinInput, setManualMinInput] = useState('-1')
   const [manualMaxInput, setManualMaxInput] = useState('1')
   const [timeMode, setTimeMode] = useState<'absolute' | 'relative'>('absolute')
+  const [activeTab, setActiveTab] = useState<'chart' | 'console'>('chart')
 
   const handleIncomingLine = useCallback((line: string) => {
     setLastLine(line)
+    
+    // Send to console store (always log all incoming data)
+    consoleStore.addIncoming(line)
+    
+    // Parse for chart (existing logic)
     if (line.trim().startsWith('#')) {
       const names = line.replace(/^\s*#+\s*/, '').split(/[\s,\t]+/).filter(Boolean)
       if (names.length > 0) store.setSeries(names)
@@ -36,7 +47,7 @@ function App() {
       if (Number.isFinite(v)) values.push(v)
     }
     if (values.length > 0) store.append(values)
-  }, [store])
+  }, [store, consoleStore])
 
   const dataConnection = useDataConnection(handleIncomingLine)
 
@@ -67,6 +78,10 @@ function App() {
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
   }, [setStatsHeightPx])
+
+  const handleExportCsv = useCallback((options: ChartExportOptions) => {
+    exportChartData(snap, store, options)
+  }, [snap, store])
 
   return (
     <div className="h-dvh flex flex-col bg-white text-gray-900 dark:bg-neutral-950 dark:text-neutral-100 overflow-hidden">
@@ -101,13 +116,17 @@ function App() {
             }}
           />
         </div>
-        <div
-          className="flex-1 min-h-0 grid"
-          ref={containerRef}
-          style={{ gridTemplateRows: `minmax(0,1fr) 6px ${statsHeightPx}px` }}
-        >
-          {(() => {
-            return (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {/* Tab Navigation */}
+          <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
+          
+          {/* Tab Content */}
+          {activeTab === 'chart' ? (
+            <div
+              className="flex-1 min-h-0 grid"
+              ref={containerRef}
+              style={{ gridTemplateRows: `minmax(0,1fr) 6px ${statsHeightPx}px` }}
+            >
               <div className="relative w-full h-full" ref={plotContainerRef}>
                 <PlotCanvas
                   ref={canvasRef}
@@ -137,6 +156,7 @@ function App() {
                 <PlotToolsOverlay
                   ref={toolsRef}
                   frozen={store.getFrozen()}
+                  hasData={snap.viewPortSize > 0}
                   onToggleFrozen={() => {
                     store.stopMomentum()
                     if (!store.getFrozen()) {
@@ -148,6 +168,7 @@ function App() {
                   }}
                   onZoomIn={() => store.zoomByFactor(1.25)}
                   onZoomOut={() => store.zoomByFactor(0.8)}
+                  onExportCsv={handleExportCsv}
                   onSavePng={async () => {
                     const node = plotContainerRef.current
                     if (!node) return
@@ -168,15 +189,22 @@ function App() {
                   </div>
                 )}
               </div>
-            )
-          })()}
-          <div
-            className="cursor-row-resize bg-neutral-800 hover:bg-neutral-700 select-none touch-none"
-            onPointerDown={startDragResize}
-          />
-          <div className="overflow-auto">
-            {snap.viewPortSize === 0 ? null : <StatsPanel snapshot={snap} />}
-          </div>
+              <div
+                className="cursor-row-resize bg-neutral-800 hover:bg-neutral-700 select-none touch-none"
+                onPointerDown={startDragResize}
+              />
+              <div className="overflow-auto">
+                {snap.viewPortSize === 0 ? null : <StatsPanel snapshot={snap} />}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0">
+              <SerialConsole 
+                isConnected={dataConnection.state.isConnected}
+                onSendMessage={dataConnection.write}
+              />
+            </div>
+          )}
         </div>
         {/* Removed old bottom screenshot button; use overlay or per-card actions */}
         {lastLine && (

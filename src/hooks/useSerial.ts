@@ -16,6 +16,7 @@ export interface UseSerial {
   connect: (baudRate: number) => Promise<void>
   disconnect: () => Promise<void>
   onLine: (handler: (line: string) => void) => void
+  write: (data: string) => Promise<void>
 }
 
 // Minimal serial types from lib.dom (guarded by any where unavailable)
@@ -37,6 +38,7 @@ export function useSerial(): UseSerial {
   const abortControllerRef = useRef<AbortController | null>(null)
   const readerRef = useRef<ReadableStreamDefaultReader<string> | null>(null)
   const portRef = useRef<SerialPort | null>(null)
+  const writerRef = useRef<WritableStreamDefaultWriter<Uint8Array> | null>(null)
 
   const onLine = useCallback((handler: (line: string) => void) => {
     lineHandlerRef.current = handler
@@ -55,6 +57,15 @@ export function useSerial(): UseSerial {
         }
       }
       readerRef.current = null
+      
+      if (writerRef.current) {
+        try {
+          await writerRef.current.close()
+        } catch {
+          // ignore close errors
+        }
+      }
+      writerRef.current = null
       
       if (portRef.current && typeof portRef.current.close === 'function') {
         await portRef.current.close()
@@ -103,6 +114,9 @@ export function useSerial(): UseSerial {
       const readableClosed = port.readable.pipeTo(textDecoder.writable)
       const reader = textDecoder.readable.getReader()
       readerRef.current = reader
+      
+      const writer = port.writable.getWriter()
+      writerRef.current = writer
       portRef.current = port
       
       setState((s) => ({ ...s, port, isConnected: true }))
@@ -150,8 +164,23 @@ export function useSerial(): UseSerial {
     }
   }, [state.isSupported, disconnect])
 
+  const write = useCallback(async (data: string) => {
+    if (!writerRef.current) {
+      throw new Error('Serial port not connected')
+    }
+    
+    try {
+      const encoder = new TextEncoder()
+      const encoded = encoder.encode(data)
+      await writerRef.current.write(encoded)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to write to serial port'
+      setState((s) => ({ ...s, error: message }))
+      throw err
+    }
+  }, [])
 
-  return { state, connect, disconnect, onLine }
+  return { state, connect, disconnect, onLine, write }
 }
 
 

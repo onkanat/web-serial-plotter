@@ -25,6 +25,7 @@ export interface UseDataConnection {
   connectSerial: (config: SerialConfig) => Promise<void>
   connectGenerator: (config: GeneratorConfig) => Promise<void>
   disconnect: () => Promise<void>
+  write: (data: string) => Promise<void>
   generatorConfig: GeneratorConfig
   setGeneratorConfig: (config: Partial<GeneratorConfig>) => void
 }
@@ -117,11 +118,19 @@ export function useDataConnection(onLine: (line: string) => void): UseDataConnec
     serial.onLine(onLine)
   }, [serial, onLine])
 
+  const write = useCallback(async (data: string) => {
+    if (connectionType !== 'serial' || !serial.state.isConnected) {
+      throw new Error('Serial port not connected')
+    }
+    await serial.write(data)
+  }, [connectionType, serial])
+
   return {
     state,
     connectSerial,
     connectGenerator,
     disconnect,
+    write,
     generatorConfig: generator.config,
     setGeneratorConfig: generator.setConfig
   }
