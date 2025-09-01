@@ -1,6 +1,6 @@
 import { forwardRef, useState, useRef, useEffect } from 'react'
 import Button from './ui/Button'
-import { PlayIcon, PauseIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, CameraIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { PlayIcon, PauseIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, CameraIcon, ArrowDownTrayIcon, CogIcon } from '@heroicons/react/24/outline'
 import type { ChartExportOptions } from '../utils/chartExport'
 
 interface Props {
@@ -10,10 +10,11 @@ interface Props {
   onZoomOut: () => void
   onSavePng: () => Promise<void> | void
   onExportCsv: (options: ChartExportOptions) => void
+  onShowSettings: () => void
   hasData: boolean
 }
 
-const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOverlay({ frozen, onToggleFrozen, onZoomIn, onZoomOut, onSavePng, onExportCsv, hasData }, ref) {
+const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOverlay({ frozen, onToggleFrozen, onZoomIn, onZoomOut, onSavePng, onExportCsv, onShowSettings, hasData }, ref) {
   const [showExportMenu, setShowExportMenu] = useState(false)
   const exportMenuRef = useRef<HTMLDivElement>(null)
 
@@ -104,6 +105,10 @@ const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOve
         )}
       </div>
       
+      <Button size="sm" variant="neutral" aria-label="Settings" title="Settings" onClick={onShowSettings}>
+        <CogIcon className="w-5 h-5" />
+      </Button>
+
       <Button size="sm" variant="neutral" aria-label="Save PNG" title="Save PNG" onClick={onSavePng}>
         <CameraIcon className="w-5 h-5" />
       </Button>
