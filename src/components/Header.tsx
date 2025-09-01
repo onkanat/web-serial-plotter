@@ -62,7 +62,10 @@ export function Header({
         <div className="flex items-center gap-3">
           <div className="text-lg font-semibold tracking-tight">Web Serial Plotter</div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <div className="hidden md:block text-xs text-neutral-500 dark:text-neutral-400">
+            This project is a work in progress. Found a bug or have an idea? <a className="underline hover:no-underline text-blue-600 dark:text-blue-400" href="https://github.com/atomic14/web-serial-plotter/issues" target="_blank" rel="noopener noreferrer">Open an issue on GitHub</a>.
+          </div>
           <Button 
             variant={getButtonVariant(connectionState)}
             disabled={connectionState.isConnecting}
