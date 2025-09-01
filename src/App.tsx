@@ -15,6 +15,7 @@ import { captureElementPng, downloadDataUrlPng } from './utils/screenshot'
 import PlotToolsOverlay from './components/PlotToolsOverlay'
 import TabNav from './components/TabNav'
 import SerialConsole from './components/SerialConsole'
+import Footer from './components/Footer'
 import { exportChartData, type ChartExportOptions } from './utils/chartExport'
 
 function App() {
@@ -211,6 +212,11 @@ function App() {
           <div className="text-xs text-neutral-400 truncate">Last line: {lastLine}</div>
         )}
       </main>
+      
+      <Footer 
+        githubUrl="https://github.com/atomic14/web-serial-plotter"
+        patreonUrl="https://www.patreon.com/atomic14"
+      />
       </div>
   )
 }
