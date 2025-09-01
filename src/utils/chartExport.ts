@@ -45,7 +45,7 @@ export function exportVisibleChartDataAsCsv(
   const csvLines = [headers.join(',')]
   
   // Base time for relative timestamps (first timestamp ever received)
-  const baseTime = options.timeFormat === 'relative' ? firstTimestamp : undefined
+  const baseTime = options.timeFormat === 'relative' ? (firstTimestamp ?? undefined) : undefined
   
   // Export each data point
   for (let i = 0; i < times.length; i++) {
@@ -104,7 +104,7 @@ export function exportAllChartDataAsCsv(
   const endIndex = writeIndex - 1
   
   // Base time for relative timestamps (use first timestamp ever received)
-  const baseTime = options.timeFormat === 'relative' ? store.firstTimestamp : undefined
+  const baseTime = options.timeFormat === 'relative' ? (store.firstTimestamp ?? undefined) : undefined
   
   // Export each data point in chronological order
   for (let i = startIndex; i <= endIndex; i++) {

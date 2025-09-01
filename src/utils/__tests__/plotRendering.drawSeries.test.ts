@@ -17,7 +17,7 @@ describe('drawSeries', () => {
       series: [{ id: 0, name: 'S1', color: '#fff' }],
       getSeriesData: () => new Float32Array([0, NaN, 1, 2]),
       viewPortSize: 4,
-    } as unknown as import('../../types/plot').PlotSnapshot
+    } as unknown as import('../../store/RingStore').ViewPortData
     drawSeries(ctx, chart, snapshot, -1, 3)
     expect(ctx.rect).toHaveBeenCalledWith(0, 0, 100, 50)
     expect(ctx.clip).toHaveBeenCalled()

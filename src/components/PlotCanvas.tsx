@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
-import type { PlotSnapshot } from '../types/plot'
+import type { ViewPortData } from '../store/RingStore'
 import { 
   calculateChartBounds, 
   getThemeColors, 
@@ -20,7 +20,7 @@ import { useCanvasInteractions } from '../hooks/useCanvasInteractions'
  * - Supports mouse/touch grab-to-pan via onPan* callbacks and pinch-to-zoom via onZoomFactor
  */
 interface Props {
-  snapshot: PlotSnapshot
+  snapshot: ViewPortData
   yOverride?: { min: number; max: number } | null
   showYAxis?: boolean
   timeMode?: 'absolute' | 'relative'
@@ -37,7 +37,7 @@ export type PlotCanvasHandle = {
 
 export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanvas({ snapshot, yOverride, showYAxis = true, timeMode = 'absolute', onPanStart, onPanDelta, onPanEnd, onZoomFactor, showHoverTooltip = false }, ref) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const snapshotRef = useRef<PlotSnapshot>(snapshot)
+  const snapshotRef = useRef<ViewPortData>(snapshot)
   const yOverrideRef = useRef<Props['yOverride']>(yOverride)
   const panStartRef = useRef<Props['onPanStart'] | undefined>(undefined)
   const panDeltaRef = useRef<Props['onPanDelta'] | undefined>(undefined)
@@ -198,7 +198,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
   useCanvasInteractions({ canvasRef, snapshot, onPanStart, onPanDelta, onPanEnd, onZoomFactor })
 
   // Redraw on snapshot or scale changes (with shallow comparison)
-  const prevSnapshotRef = useRef<PlotSnapshot | null>(null)
+  const prevSnapshotRef = useRef<ViewPortData | null>(null)
   const prevYOverrideRef = useRef<Props['yOverride']>(null)
   
   useEffect(() => {

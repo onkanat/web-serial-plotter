@@ -1,4 +1,4 @@
-import type { PlotSnapshot } from '../types/plot'
+import type { ViewPortData } from '../store/RingStore'
 
 /**
  * Utility functions for plot canvas rendering.
@@ -205,7 +205,7 @@ export function drawXAxis(
   ctx: CanvasRenderingContext2D,
   chart: ChartBounds,
   theme: Theme,
-  snapshot: PlotSnapshot,
+  snapshot: ViewPortData,
   timeMode: 'absolute' | 'relative'
 ) {
   const times = snapshot.getTimes?.() ?? new Float64Array(0)
@@ -274,7 +274,7 @@ export function drawXAxis(
 export function drawSeries(
   ctx: CanvasRenderingContext2D,
   chart: ChartBounds,
-  snapshot: PlotSnapshot,
+  snapshot: ViewPortData,
   yMin: number,
   yMax: number
 ) {
@@ -342,7 +342,7 @@ export function drawHoverCrosshair(
   ctx: CanvasRenderingContext2D,
   chart: ChartBounds,
   theme: Theme,
-  snapshot: PlotSnapshot,
+  snapshot: ViewPortData,
   hover: { x: number; y: number; sampleIndex: number }
 ) {
   const { sampleIndex } = hover
@@ -371,7 +371,7 @@ export function drawHoverTooltip(
   ctx: CanvasRenderingContext2D,
   chart: ChartBounds,
   theme: Theme,
-  snapshot: PlotSnapshot,
+  snapshot: ViewPortData,
   timeMode: 'absolute' | 'relative',
   hover: { x: number; y: number; sampleIndex: number }
 ) {
