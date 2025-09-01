@@ -13,7 +13,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 function classesFor(variant: Variant, size: Size, disabled?: boolean) {
   const base = 'inline-flex items-center justify-center rounded-md border font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-0 select-none'
   const sz = size === 'sm' ? 'text-xs px-2 py-1' : 'text-sm px-3 py-1.5'
-  const neutral = 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700'
+  const neutral = 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800'
   const primary = 'bg-blue-600 text-white border-blue-600 hover:bg-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500'
   const danger = 'bg-red-600 text-white border-red-600 hover:bg-red-500'
   const variantCls = variant === 'primary' ? primary : variant === 'danger' ? danger : neutral

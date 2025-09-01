@@ -26,7 +26,7 @@ interface Props {
 
 export default function SettingsPanel({ open, settings, onChange, onClose }: Props) {
   return (
-    <aside aria-hidden={!open} className={`shrink-0 border-l ${open ? 'border-gray-200 dark:border-neutral-800' : 'border-transparent'} ${open ? 'w-64' : 'w-0'} overflow-hidden transition-all duration-200 ease-out bg-white dark:bg-neutral-900 text-sm`}>
+    <aside aria-hidden={!open} className={`shrink-0 border-l ${open ? 'border-gray-200 dark:border-neutral-800' : 'border-transparent'} ${open ? 'w-48' : 'w-0'} overflow-hidden transition-all duration-200 ease-out bg-white dark:bg-neutral-900 text-sm`}>
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-neutral-800">
         <div className="font-medium">Settings</div>
         <Button size="sm" variant="neutral" onClick={onClose}>Close</Button>
@@ -53,6 +53,14 @@ export default function SettingsPanel({ open, settings, onChange, onClose }: Pro
         </div>
 
         <div>
+          <div className="text-xs uppercase tracking-wide opacity-70 mb-2">Time</div>
+          <Select className="w-full" value={settings.timeMode} onChange={(e) => onChange.setTimeMode(e.target.value as 'absolute' | 'relative')}>
+            <option value="absolute">Absolute</option>
+            <option value="relative">Relative</option>
+          </Select>
+        </div>
+
+        <div>
           <div className="text-xs uppercase tracking-wide opacity-70 mb-2">History</div>
           <div className="flex items-center gap-2">
             <Input type="number" className="w-28" min={100} step={100} value={settings.capacity} onChange={(e) => onChange.setCapacity(Math.max(100, Math.floor(Number(e.target.value) || 100)))} />
@@ -60,13 +68,6 @@ export default function SettingsPanel({ open, settings, onChange, onClose }: Pro
           </div>
         </div>
 
-        <div>
-          <div className="text-xs uppercase tracking-wide opacity-70 mb-2">Time</div>
-          <Select className="w-full" value={settings.timeMode} onChange={(e) => onChange.setTimeMode(e.target.value as 'absolute' | 'relative')}>
-            <option value="absolute">Absolute</option>
-            <option value="relative">Relative</option>
-          </Select>
-        </div>
       </div>
     </aside>
   )
