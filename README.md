@@ -7,24 +7,28 @@
 Real‑time, beautiful, and zero‑friction plotting for any serial device — right in your browser.
 
 > Connect an Arduino, sensor board, or any UART‑speaking device and get instant charts with no drivers or native apps. Built with Vite + React + TypeScript + Tailwind CSS.
+## Support
+
+If you find this project useful, consider supporting its development:
+
+[![Support on Patreon](https://img.shields.io/badge/Support-Patreon-f96854?logo=patreon&logoColor=white)](https://www.patreon.com/atomic14)
+
+Your support helps maintain and improve this tool for the entire community!
 
 ## Goals
 
 - Deliver a delightful, modern UI that “just works” for live serial data.
-- Make it easy to explore and debug data streams with rich interactions.
 - Keep everything local in the browser — fast, private, and portable.
 
 ## Status
 
-**Production Ready** - Core functionality is complete and stable. The application successfully handles real-time serial data plotting with professional-grade performance and user experience.
+**Ready for testing** - Core functionality is complete. The application successfully handles real-time serial data plotting. We now need people to test it and provide feedback.
 
 ## Current Features
 
 ✅ **Real-time Plotting**
 - Multi-series plotting from CSV/space/tab-separated serial data
 - Automatic series detection from header lines (e.g., `# time ax ay az`)
-- High-performance ring buffer with configurable history (up to 12K+ points)
-- Smooth 60 FPS rendering with HTML5 Canvas
 
 ✅ **Interactive Controls**
 - Mouse/touch pan and zoom with momentum scrolling
@@ -37,7 +41,6 @@ Real‑time, beautiful, and zero‑friction plotting for any serial device — r
 - Real-time statistics: min/max/mean/median/stddev
 - Live histograms for each data series
 - Configurable time display (absolute/relative)
-- Sample rate monitoring
 
 ✅ **Channel Management**
 - Series renaming and color customization
@@ -46,8 +49,15 @@ Real‑time, beautiful, and zero‑friction plotting for any serial device — r
 
 ✅ **Export & Testing**
 - PNG screenshot export (plot + individual stats cards)
+- CSV session export/import
 - Built-in signal generator for testing (sine, noise, ramp)
 - Configurable sample rates and amplitudes
+
+✅ **Serial Console**
+- Send messages to serial device
+- Receive messages from serial device
+- Export messages to text
+
 
 ✅ **User Experience**
 - Dark/light theme toggle
@@ -136,6 +146,7 @@ Firefox and Safari do not support Web Serial at this time. On desktop, use Chrom
 - `npm run lint` – Run ESLint code quality checks
 - `npm run typecheck` – Run TypeScript type checking
 - `npm test` – Run the test suite
+- `npm run test:coverage` – Run the test suite with coverage
 
 ## Project Structure
 
@@ -180,7 +191,7 @@ Firefox and Safari do not support Web Serial at this time. On desktop, use Chrom
 
 ## Contributing
 
-Ideas, issues, and pull requests are welcome. If you’re testing with specific hardware, please share device details and sample output so we can improve defaults and parsing.
+Ideas, issues, and pull requests are welcome. If you're testing with specific hardware, please share device details and sample output so we can improve defaults and parsing.
 
 ## License
 
