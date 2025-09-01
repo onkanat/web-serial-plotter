@@ -29,13 +29,14 @@ interface Props {
   onPanEnd?: (endVelocitySamplesPerMs: number) => void
   onZoomFactor?: (factor: number) => void
   showHoverTooltip?: boolean
+  interactionsEnabled?: boolean
 }
 
 export type PlotCanvasHandle = {
   exportPNG: (opts?: { scale?: number; background?: string }) => string
 }
 
-export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanvas({ snapshot, yOverride, showYAxis = true, timeMode = 'absolute', onPanStart, onPanDelta, onPanEnd, onZoomFactor, showHoverTooltip = false }, ref) {
+export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanvas({ snapshot, yOverride, showYAxis = true, timeMode = 'absolute', onPanStart, onPanDelta, onPanEnd, onZoomFactor, showHoverTooltip = false, interactionsEnabled = true }, ref) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const snapshotRef = useRef<ViewPortData>(snapshot)
   const yOverrideRef = useRef<Props['yOverride']>(yOverride)
@@ -195,7 +196,7 @@ export const PlotCanvas = forwardRef<PlotCanvasHandle, Props>(function PlotCanva
   }, [showHoverTooltip, getSampleIndexFromMouseX, draw])
 
   // Use shared interactions hook for pan/zoom
-  useCanvasInteractions({ canvasRef, snapshot, onPanStart, onPanDelta, onPanEnd, onZoomFactor })
+  useCanvasInteractions({ canvasRef, snapshot, onPanStart, onPanDelta, onPanEnd, onZoomFactor, enabled: interactionsEnabled })
 
   // Redraw on snapshot or scale changes (with shallow comparison)
   const prevSnapshotRef = useRef<ViewPortData | null>(null)

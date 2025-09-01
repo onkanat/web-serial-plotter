@@ -85,9 +85,7 @@ function App() {
     exportChartData(snap, store, options)
   }, [snap, store])
 
-  const handleShowSettings = useCallback(() => {
-    setShowSettingsPanel(true)
-  }, [])
+  // settings toggled inline via toolbar button
 
   // Removed modal save handler
 
@@ -113,13 +111,43 @@ function App() {
           
           {/* Tab Content */}
           {activeTab === 'chart' ? (
-            <div className="mt-4 flex-1 min-h-0 flex">
-              <div
-                className="flex-1 min-h-0 grid"
-                ref={containerRef}
-                style={{ gridTemplateRows: `minmax(0,1fr) 6px ${statsHeightPx}px` }}
-              >
-                <div className="relative w-full h-full" ref={plotContainerRef}>
+            <div className="mt-2 flex-1 min-h-0 flex flex-col gap-2">
+              {/* Tools toolbar above plot */}
+              <div className="flex items-center justify-end">
+                <PlotToolsOverlay
+                  ref={toolsRef}
+                  frozen={store.getFrozen()}
+                  hasData={snap.viewPortSize > 0}
+                  onToggleFrozen={() => {
+                    store.stopMomentum()
+                    if (!store.getFrozen()) {
+                      store.setFrozen(true)
+                    } else {
+                      store.setViewPortCursor(0)
+                      store.setFrozen(false)
+                    }
+                  }}
+                  onZoomIn={() => store.zoomByFactor(1.25)}
+                  onZoomOut={() => store.zoomByFactor(0.8)}
+                  onExportCsv={handleExportCsv}
+                  onShowSettings={() => setShowSettingsPanel((v) => !v)}
+                  onSavePng={async () => {
+                    const node = plotContainerRef.current
+                    if (!node) return
+                    const bg = getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#fff'
+                    const dataUrl = await captureElementPng(node, { pixelRatio: 2, backgroundColor: bg.trim() || '#fff', paddingPx: 12 })
+                    downloadDataUrlPng(dataUrl, `plot-${Date.now()}.png`)
+                  }}
+                />
+              </div>
+
+              <div className="flex-1 min-h-0 flex">
+                <div
+                  className="flex-1 min-h-0 grid"
+                  ref={containerRef}
+                  style={{ gridTemplateRows: `minmax(0,1fr) 6px ${statsHeightPx}px` }}
+                >
+                  <div className="relative w-full h-full" ref={plotContainerRef}>
                   <PlotCanvas
                     ref={canvasRef}
                     snapshot={snap}
@@ -146,34 +174,9 @@ function App() {
                     onZoomFactor={(factor) => store.zoomByFactor(factor)}
                     showHoverTooltip={true}
                   />
-                  <PlotToolsOverlay
-                    ref={toolsRef}
-                    frozen={store.getFrozen()}
-                    hasData={snap.viewPortSize > 0}
-                    onToggleFrozen={() => {
-                      store.stopMomentum()
-                      if (!store.getFrozen()) {
-                        store.setFrozen(true)
-                      } else {
-                        store.setViewPortCursor(0)
-                        store.setFrozen(false)
-                      }
-                    }}
-                    onZoomIn={() => store.zoomByFactor(1.25)}
-                    onZoomOut={() => store.zoomByFactor(0.8)}
-                    onExportCsv={handleExportCsv}
-                    onShowSettings={handleShowSettings}
-                    onSavePng={async () => {
-                      const node = plotContainerRef.current
-                      if (!node) return
-                      const bg = getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#fff'
-                      const dataUrl = await captureElementPng(node, { pixelRatio: 2, backgroundColor: bg.trim() || '#fff', paddingPx: 12, temporarilyHide: toolsRef.current ? [toolsRef.current] : [] })
-                      downloadDataUrlPng(dataUrl, `plot-${Date.now()}.png`)
-                    }}
-                  />
                   {/* Legend overlay bottom-right if data present */}
                   {snap.viewPortSize > 0 && (
-                    <div className="absolute bottom-8 right-2 pointer-events-auto">
+                    <div className="absolute top-8 right-2 pointer-events-auto">
                       <Legend />
                     </div>
                   )}
@@ -182,17 +185,17 @@ function App() {
                       Connect a device or start test to begin plotting…
                     </div>
                   )}
+                  </div>
+                  <div
+                    className="cursor-row-resize bg-neutral-800 hover:bg-neutral-700 select-none touch-none"
+                    onPointerDown={startDragResize}
+                  />
+                  <div className="overflow-auto">
+                    {snap.viewPortSize === 0 ? null : <StatsPanel snapshot={snap} />}
+                  </div>
                 </div>
-                <div
-                  className="cursor-row-resize bg-neutral-800 hover:bg-neutral-700 select-none touch-none"
-                  onPointerDown={startDragResize}
-                />
-                <div className="overflow-auto">
-                  {snap.viewPortSize === 0 ? null : <StatsPanel snapshot={snap} />}
-                </div>
-              </div>
-              {showSettingsPanel && (
                 <SettingsPanel
+                  open={showSettingsPanel}
                   settings={{
                     autoscale,
                     manualMinInput,
@@ -209,7 +212,7 @@ function App() {
                   }}
                   onClose={() => setShowSettingsPanel(false)}
                 />
-              )}
+              </div>
             </div>
           ) : (
             <div className="flex-1 min-h-0">

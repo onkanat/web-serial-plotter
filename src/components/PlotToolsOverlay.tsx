@@ -1,5 +1,6 @@
 import { forwardRef, useState, useRef, useEffect } from 'react'
 import Button from './ui/Button'
+import Tooltip from './ui/Tooltip'
 import { PlayIcon, PauseIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, CameraIcon, ArrowDownTrayIcon, CogIcon } from '@heroicons/react/24/outline'
 import type { ChartExportOptions } from '../utils/chartExport'
 
@@ -32,33 +33,40 @@ const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOve
     }
   }, [showExportMenu])
   return (
-    <div className="absolute top-2 right-2 flex items-center gap-2 pointer-events-auto" ref={ref}>
-      <Button size="sm" variant="neutral" aria-label={frozen ? 'Play' : 'Pause'} title={frozen ? 'Play' : 'Pause'} onClick={onToggleFrozen}>
-        {frozen ? (
-          <PlayIcon className="w-5 h-5" />
-        ) : (
-          <PauseIcon className="w-5 h-5" />
-        )}
-      </Button>
-      <Button size="sm" variant="neutral" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn}>
-        <MagnifyingGlassPlusIcon className="w-5 h-5" />
-      </Button>
-      <Button size="sm" variant="neutral" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
-        <MagnifyingGlassMinusIcon className="w-5 h-5" />
-      </Button>
+    <div className="flex items-center gap-2" ref={ref}>
+      <Tooltip label={frozen ? 'Resume (play)' : 'Freeze (pause)'}>
+        <Button size="sm" variant="neutral" aria-label={frozen ? 'Play' : 'Pause'} onClick={onToggleFrozen}>
+          {frozen ? (
+            <PlayIcon className="w-5 h-5" />
+          ) : (
+            <PauseIcon className="w-5 h-5" />
+          )}
+        </Button>
+      </Tooltip>
+      <Tooltip label="Zoom in">
+        <Button size="sm" variant="neutral" aria-label="Zoom in" onClick={onZoomIn}>
+          <MagnifyingGlassPlusIcon className="w-5 h-5" />
+        </Button>
+      </Tooltip>
+      <Tooltip label="Zoom out">
+        <Button size="sm" variant="neutral" aria-label="Zoom out" onClick={onZoomOut}>
+          <MagnifyingGlassMinusIcon className="w-5 h-5" />
+        </Button>
+      </Tooltip>
       
       {/* CSV Export Button with Dropdown */}
       <div className="relative" ref={exportMenuRef}>
-        <Button 
-          size="sm" 
-          variant="neutral" 
-          aria-label="Export CSV" 
-          title="Export CSV" 
-          disabled={!hasData}
-          onClick={() => setShowExportMenu(!showExportMenu)}
-        >
-          <ArrowDownTrayIcon className="w-5 h-5" />
-        </Button>
+        <Tooltip label="Export CSV">
+          <Button 
+            size="sm" 
+            variant="neutral" 
+            aria-label="Export CSV" 
+            disabled={!hasData}
+            onClick={() => setShowExportMenu(!showExportMenu)}
+          >
+            <ArrowDownTrayIcon className="w-5 h-5" />
+          </Button>
+        </Tooltip>
         
         {showExportMenu && (
           <div className="absolute right-0 top-full mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-md shadow-lg z-10 min-w-48">
@@ -105,13 +113,17 @@ const PlotToolsOverlay = forwardRef<HTMLDivElement, Props>(function PlotToolsOve
         )}
       </div>
       
-      <Button size="sm" variant="neutral" aria-label="Settings" title="Settings" onClick={onShowSettings}>
-        <CogIcon className="w-5 h-5" />
-      </Button>
+      <Tooltip label="Save PNG">
+        <Button size="sm" variant="neutral" aria-label="Save PNG" onClick={onSavePng}>
+          <CameraIcon className="w-5 h-5" />
+        </Button>
+      </Tooltip>
 
-      <Button size="sm" variant="neutral" aria-label="Save PNG" title="Save PNG" onClick={onSavePng}>
-        <CameraIcon className="w-5 h-5" />
-      </Button>
+      <Tooltip label="Settings">
+        <Button size="sm" variant="neutral" aria-label="Settings" onClick={onShowSettings}>
+          <CogIcon className="w-5 h-5" />
+        </Button>
+      </Tooltip>
     </div>
   )
 })

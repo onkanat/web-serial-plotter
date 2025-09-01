@@ -9,6 +9,7 @@ interface UseCanvasInteractionsParams {
   onPanDelta?: (deltaSamples: number) => void
   onPanEnd?: (endVelocitySamplesPerMs: number) => void
   onZoomFactor?: (factor: number) => void
+  enabled?: boolean
 }
 
 /**
@@ -25,6 +26,7 @@ export function useCanvasInteractions({
   onPanDelta,
   onPanEnd,
   onZoomFactor,
+  enabled = true,
 }: UseCanvasInteractionsParams) {
   
   // Store callbacks in refs to avoid effect recreation
@@ -41,6 +43,14 @@ export function useCanvasInteractions({
   snapshotRef.current = snapshot
 
   useEffect(() => {
+    if (!enabled) {
+      const canvas = canvasRef.current
+      if (canvas) {
+        canvas.style.cursor = ''
+        canvas.style.touchAction = ''
+      }
+      return
+    }
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -255,7 +265,7 @@ export function useCanvasInteractions({
       canvas.style.cursor = ''
       canvas.style.touchAction = ''
     }
-  }, [canvasRef]) // canvasRef needed for event listeners
+  }, [canvasRef, enabled]) // canvasRef needed for event listeners
 
   return {
     // No return values needed - this hook manages interactions internally

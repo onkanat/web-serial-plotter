@@ -12,6 +12,7 @@ interface Settings {
 }
 
 interface Props {
+  open: boolean
   settings: Settings
   onChange: {
     setAutoscale: (v: boolean) => void
@@ -23,9 +24,9 @@ interface Props {
   onClose: () => void
 }
 
-export default function SettingsPanel({ settings, onChange, onClose }: Props) {
+export default function SettingsPanel({ open, settings, onChange, onClose }: Props) {
   return (
-    <aside className="w-64 shrink-0 border-l border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm">
+    <aside aria-hidden={!open} className={`shrink-0 border-l ${open ? 'border-gray-200 dark:border-neutral-800' : 'border-transparent'} ${open ? 'w-64' : 'w-0'} overflow-hidden transition-all duration-200 ease-out bg-white dark:bg-neutral-900 text-sm`}>
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-neutral-800">
         <div className="font-medium">Settings</div>
         <Button size="sm" variant="neutral" onClick={onClose}>Close</Button>
