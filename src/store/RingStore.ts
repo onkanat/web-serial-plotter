@@ -37,6 +37,8 @@ export class RingStore {
   globalMax: number = Number.NEGATIVE_INFINITY
   // Track the first timestamp ever received for relative time calculations
   firstTimestamp: number | null = null
+  // The maximum allowed viewport size (UI-configurable)
+  private maxViewPortSize: number = 2000
 
   private listeners = new Set<() => void>()
 
@@ -81,8 +83,10 @@ export class RingStore {
     this.writeIndex = 0
     // set the view port cursor to 0
     this.viewPortCursor = 0
-    // set the view port size to 200
-    this.viewPortSize = viewPortSize
+    // clamp max viewport size to capacity
+    this.maxViewPortSize = Math.max(10, Math.min(this.maxViewPortSize, capacity))
+    // set the view port size (clamped)
+    this.viewPortSize = Math.max(10, Math.min(viewPortSize, Math.min(capacity, this.maxViewPortSize)))
     // set the frozen state to false
     this.frozen = false
     // Incremental min/max tracking
@@ -124,8 +128,9 @@ export class RingStore {
     this.recomputeGlobalMinMax()
 
     // Revalidate viewport constraints after capacity change
-    // Ensure viewport size is clamped and cursor remains valid
-    this.viewPortSize = Math.min(this.viewPortSize, this.capacity)
+    // Clamp max viewport and viewport size (respect max and capacity); then ensure cursor remains valid
+    this.maxViewPortSize = Math.max(10, Math.min(this.maxViewPortSize, this.capacity))
+    this.viewPortSize = Math.min(this.viewPortSize, Math.min(this.capacity, this.maxViewPortSize))
     // If not frozen, follow the latest sample; otherwise clamp within range
     if (!this.frozen) {
       this.setViewPortCursor(this.writeIndex - 1)
@@ -244,8 +249,8 @@ export class RingStore {
     // Cache miss - compute viewport data
     this.cacheKey = currentKey
     
-    // the view port size should never exceed the capacity
-    const viewPortSize = Math.min(this.viewPortSize, this.capacity)
+    // the view port size should never exceed the capacity or the global max
+    const viewPortSize = Math.min(this.viewPortSize, Math.min(this.capacity, this.maxViewPortSize))
     // this is the rightmost index of the view port
     const endPosition = this.viewPortCursor
     // inclusive start and end positions
@@ -321,8 +326,8 @@ export class RingStore {
 
   // Viewport state management
   setViewPortSize(size: number): number {
-    // cannot have a window size that is greater than the capacity
-    this.viewPortSize = Math.min(size, this.capacity)
+    // cannot have a window size that is greater than the capacity or the global max
+    this.viewPortSize = Math.min(size, Math.min(this.capacity, this.maxViewPortSize))
     // cannot have a window size that is less than 10
     this.viewPortSize = Math.max(10, this.viewPortSize)
     this.invalidateViewPortCache() // viewPortSize changed
@@ -337,7 +342,7 @@ export class RingStore {
   setViewPortCursor(position: number): number {
     // cannot have a view port cursor that is less than 0
     const rounded = Math.round(position)
-    const maxCursor = Math.max(0, Math.min(this.writeIndex - 1, this.capacity - 1))
+    const maxCursor = Math.max(0, this.writeIndex - 1)
     this.viewPortCursor = Math.min(Math.max(0, rounded), maxCursor)
     this.invalidateViewPortCache() // viewPortCursor changed
     this.emit()
@@ -374,10 +379,30 @@ export class RingStore {
     const clampedFactor = Math.max(0.5, Math.min(2, factor))
     // this is what we're aiming for
     const desired = Math.round(currentLen / clampedFactor)
-    // cannot have a window size that is less than 10 or more than the capacity
-    const newWindowSize = Math.max(10, Math.min(this.capacity, desired))
+    // cannot have a window size that is less than 10 or more than the capacity or max
+    const newWindowSize = Math.max(10, Math.min(Math.min(this.capacity, this.maxViewPortSize), desired))
     // Update window size and anchors
     this.setViewPortSize(newWindowSize)
+  }
+
+  // Max viewport size controls
+  setMaxViewPortSize(maxSize: number): number {
+    const clamped = Math.max(10, Math.floor(maxSize))
+    const newMax = Math.min(clamped, this.capacity)
+    if (newMax !== this.maxViewPortSize) {
+      this.maxViewPortSize = newMax
+      // Ensure current viewport respects the new maximum
+      if (this.viewPortSize > this.maxViewPortSize) {
+        this.viewPortSize = this.maxViewPortSize
+      }
+      this.invalidateViewPortCache()
+      this.emit()
+    }
+    return this.maxViewPortSize
+  }
+
+  getMaxViewPortSize(): number {
+    return this.maxViewPortSize
   }
 
   handleWheel(event: { deltaY: number, clientX: number }): void {

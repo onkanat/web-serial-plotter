@@ -132,6 +132,7 @@ function App() {
     } catch { /* ignore persistence errors */ }
   }, [runDriverTour])
 
+
   // Removed modal save handler
 
   return (
@@ -256,6 +257,7 @@ function App() {
                     manualMinInput,
                     manualMaxInput,
                     capacity: store.getCapacity(),
+                    maxViewPortSize: store.getMaxViewPortSize(),
                     timeMode,
                   }}
                   onChange={{
@@ -263,6 +265,7 @@ function App() {
                     setManualMinInput,
                     setManualMaxInput,
                     setCapacity: (v) => store.setCapacity(v),
+                    setMaxViewPortSize: (v) => store.setMaxViewPortSize(v),
                     setTimeMode,
                   }}
                   onClose={() => setShowSettingsPanel(false)}
