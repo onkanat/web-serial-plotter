@@ -14,7 +14,7 @@ Real‑time, beautiful, and zero‑friction plotting for any serial device — r
 
 ## Try it out
 
-[Try it out](https://web-serial-plotter.atomic14.com)
+You can try it out [here](https://web-serial-plotter.atomic14.com). Or follow the instructions below to run it locally.
 
 ## Support
 
