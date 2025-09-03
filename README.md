@@ -7,6 +7,11 @@
 Real‑time, beautiful, and zero‑friction plotting for any serial device — right in your browser.
 
 > Connect an Arduino, sensor board, or any UART‑speaking device and get instant charts with no drivers or native apps. Built with Vite + React + TypeScript + Tailwind CSS.
+ 
+## Demo video
+
+[![Watch the demo on YouTube](https://img.youtube.com/vi/MEQCPBF99FQ/hqdefault.jpg)](https://youtu.be/MEQCPBF99FQ)
+
 ## Support
 
 If you find this project useful, consider supporting its development:
