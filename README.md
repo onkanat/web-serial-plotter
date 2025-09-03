@@ -12,6 +12,10 @@ Real‑time, beautiful, and zero‑friction plotting for any serial device — r
 
 [![Watch the demo on YouTube](https://img.youtube.com/vi/MEQCPBF99FQ/hqdefault.jpg)](https://youtu.be/MEQCPBF99FQ)
 
+## Try it out
+
+[Try it out](https://web-serial-plotter.atomic14.com)
+
 ## Support
 
 If you find this project useful, consider supporting its development:
@@ -34,8 +38,6 @@ Your support helps maintain and improve this tool for the entire community!
 ✅ **Real-time Plotting**
 - Multi-series plotting from CSV/space/tab-separated serial data
 - Automatic series detection from header lines (e.g., `# time ax ay az`)
-- High-performance ring buffer with configurable history (up to 100K samples)
-- Smooth 60 FPS rendering with HTML5 Canvas
 - Dynamic series adjustment (automatically adds/removes series based on data)
 
 ✅ **Interactive Controls**
@@ -55,7 +57,6 @@ Your support helps maintain and improve this tool for the entire community!
 ✅ **Channel Management**
 - Series renaming and color customization
 - Interactive legend with click-to-edit
-- Up to 8 default color themes
 - Dynamic series creation based on incoming data
 
 ✅ **Export & Testing**

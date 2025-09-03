@@ -4,9 +4,11 @@ interface Props {
   githubUrl: string
   patreonUrl: string
   youtubeUrl: string
+  newsletterUrl?: string
+  blogUrl?: string
 }
 
-export default function Footer({ githubUrl, patreonUrl, youtubeUrl }: Props) {
+export default function Footer({ githubUrl, patreonUrl, youtubeUrl, newsletterUrl, blogUrl }: Props) {
   return (
     <footer className="flex items-center justify-center gap-4 py-2 px-4 text-xs text-gray-500 dark:text-neutral-400 border-t border-gray-200 dark:border-neutral-800">
       <a
@@ -23,6 +25,34 @@ export default function Footer({ githubUrl, patreonUrl, youtubeUrl }: Props) {
       
       <span className="text-gray-300 dark:text-neutral-600">•</span>
       
+      {newsletterUrl && (
+        <>
+          <a
+            href={newsletterUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-neutral-200 transition-colors"
+          >
+            Newsletter
+          </a>
+          <span className="text-gray-300 dark:text-neutral-600">•</span>
+        </>
+      )}
+
+      {blogUrl && (
+        <>
+          <a
+            href={blogUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-neutral-200 transition-colors"
+          >
+            Blog
+          </a>
+          <span className="text-gray-300 dark:text-neutral-600">•</span>
+        </>
+      )}
+
       <a
         href={youtubeUrl}
         target="_blank"

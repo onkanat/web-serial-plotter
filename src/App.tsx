@@ -291,6 +291,8 @@ function App() {
         githubUrl="https://github.com/atomic14/web-serial-plotter"
         patreonUrl="https://www.patreon.com/atomic14"
         youtubeUrl="https://www.youtube.com/@atomic14"
+        newsletterUrl="https://atomic14.substack.com"
+        blogUrl="https://www.atomic14.com"
       />
       </div>
   )
