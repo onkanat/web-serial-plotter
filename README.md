@@ -84,14 +84,31 @@ Your support helps maintain and improve this tool for the entire community!
 - Real-time connection status with visual indicators
 - Professional footer with project links
 
+
+
+## Using the App: Live vs. Local
+
+Most users do **not** need to run this project locally! For general use, simply visit the live site:
+
+- **[web-serial-plotter.atomic14.com](https://web-serial-plotter.atomic14.com)**
+
+You only need to follow the local setup instructions below if you want to contribute, develop new features, or test changes to the codebase.
+
 ## Quick Start (development)
 
-Prerequisites:
+### Prerequisites
 
-- Node.js 18+ (LTS recommended)
-- A Chromium‑based browser that supports the Web Serial API (Chrome, Edge, Opera)
+- **Node.js 20.19+ or 22.12+** (required by Vite; older versions will not work)
+  - To check your version, run:
+    ```bash
+    node --version
+    ```
+  - If your version is lower than 20.19.0, [download the latest Node.js here](https://nodejs.org/en/download) and install it.
+  - For upgrade instructions, see the [official Node.js documentation](https://nodejs.org/en/download/package-manager/).
+- **npm** (comes with Node.js)
+- **A Chromium‑based browser** that supports the Web Serial API (Chrome, Edge, Opera)
 
-Install and run:
+### Install and run
 
 ```bash
 npm install
