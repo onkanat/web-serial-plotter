@@ -18,7 +18,7 @@ interface Props {
   generatorConfig: GeneratorConfig
 }
 
-const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
+const BAUD_RATES = [300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
 
 export function ConnectModal({
   isOpen,
