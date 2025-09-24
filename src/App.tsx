@@ -73,11 +73,11 @@ function App() {
     
     // Parse for chart (existing logic)
     if (line.trim().startsWith('#')) {
-      const names = line.replace(/^\s*#+\s*/, '').split(/[\s,\t]+/).filter(Boolean)
+      const names = line.replace(/^\(/, '').replace(/\)$/, '').replace(/^\s*#+\s*/, '').split(/[\s,\t]+/).filter(Boolean)
       if (names.length > 0) store.setSeries(names)
       return
     }
-    const parts = line.trim().split(/[\s,\t]+/).filter(Boolean)
+    const parts = line.trim().replace(/^\(/, '').replace(/\)$/, '').split(/[\s,\t]+/).filter(Boolean)
     if (parts.length === 0) return
     const values: number[] = []
     for (const p of parts) {
