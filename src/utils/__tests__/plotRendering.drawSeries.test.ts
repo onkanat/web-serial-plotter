@@ -14,7 +14,7 @@ describe('drawSeries', () => {
     const ctx = makeCtx()
     const chart = { x: 0, y: 0, width: 100, height: 50 }
     const snapshot = {
-      series: [{ id: 0, name: 'S1', color: '#fff' }],
+      series: [{ id: 0, name: 'S1', color: '#fff', visible: true }],
       getSeriesData: () => new Float32Array([0, NaN, 1, 2]),
       viewPortSize: 4,
     } as unknown as import('../../store/RingStore').ViewPortData
@@ -23,6 +23,24 @@ describe('drawSeries', () => {
     expect(ctx.clip).toHaveBeenCalled()
     expect(ctx.beginPath).toHaveBeenCalled()
     expect(ctx.stroke).toHaveBeenCalled()
+  })
+
+  it('skips hidden series', () => {
+    const ctx = makeCtx()
+    const chart = { x: 0, y: 0, width: 100, height: 50 }
+    const snapshot = {
+      series: [
+        { id: 0, name: 'S1', color: '#fff', visible: false },
+        { id: 1, name: 'S2', color: '#aaa', visible: true }
+      ],
+      getSeriesData: (id: number) => id === 0 ? new Float32Array([1, 2, 3]) : new Float32Array([4, 5, 6]),
+      viewPortSize: 3,
+    } as unknown as import('../../store/RingStore').ViewPortData
+    
+    drawSeries(ctx, chart, snapshot, -1, 10)
+    
+    // Should only draw once (for visible series S2), not twice
+    expect(ctx.stroke).toHaveBeenCalledTimes(1)
   })
 })
 

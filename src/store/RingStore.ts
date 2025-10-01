@@ -72,7 +72,7 @@ export class RingStore {
 
   reset(capacity = 100000, viewPortSize = 200, seriesNames: string[]) {
     // construct with a set of series
-    this.series = new Array(seriesNames.length).fill(0).map((_, i) => ({ id: i, name: seriesNames[i], color: DEFAULT_COLORS[i % DEFAULT_COLORS.length] }))
+    this.series = new Array(seriesNames.length).fill(0).map((_, i) => ({ id: i, name: seriesNames[i], color: DEFAULT_COLORS[i % DEFAULT_COLORS.length], visible: true }))
     // create the buffers for storing the series data - these should be filled with NaN
     this.buffers = new Array(seriesNames.length).fill(0).map(() => new Float32Array(capacity).fill(NaN))
     // create the timestamps for each sample - these should be filled with NaN
@@ -195,7 +195,8 @@ export class RingStore {
         const newSeries: PlotSeries = {
           id: i,
           name: `S${i + 1}`,
-          color: DEFAULT_COLORS[i % DEFAULT_COLORS.length]
+          color: DEFAULT_COLORS[i % DEFAULT_COLORS.length],
+          visible: true
         }
         this.series.push(newSeries)
         
@@ -289,10 +290,13 @@ export class RingStore {
       }
     }
 
-    // Compute y-range from the current viewport window
+    // Compute y-range from the current viewport window (only for visible series)
     let yMin = Number.POSITIVE_INFINITY
     let yMax = Number.NEGATIVE_INFINITY
     for (let k = 0; k < seriesViews.length; k++) {
+      // Skip hidden series
+      if (!this.series[k]?.visible) continue
+      
       const arr = seriesViews[k]
       for (let i = 0; i < arr.length; i++) {
         const v = arr[i]
@@ -465,6 +469,14 @@ export class RingStore {
     const target = this.series.find((m) => m.id === id)
     if (!target) return
     target.color = color
+    this.emit()
+  }
+
+  toggleSeriesVisibility(id: number) {
+    const target = this.series.find((m) => m.id === id)
+    if (!target) return
+    target.visible = !target.visible
+    this.invalidateViewPortCache() // visibility affects y-axis range calculation
     this.emit()
   }
 }

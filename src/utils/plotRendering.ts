@@ -291,6 +291,9 @@ export function drawSeries(
   
   // Draw each series
   for (const series of snapshot.series) {
+    // Skip hidden series
+    if (!series.visible) continue
+    
     const data = snapshot.getSeriesData(series.id)
     if (!data || data.length === 0) continue
     
@@ -384,9 +387,12 @@ export function drawHoverTooltip(
   const timestamp = times[sampleIndex]
   if (!Number.isFinite(timestamp)) return // Skip NaN timestamps
   
-  // Collect all series values at this index
+  // Collect all series values at this index (only for visible series)
   const values: Array<{ name: string; value: number; color: string }> = []
   for (const series of snapshot.series) {
+    // Skip hidden series
+    if (!series.visible) continue
+    
     const data = snapshot.getSeriesData(series.id)
     if (sampleIndex < data.length) {
       const value = data[sampleIndex]

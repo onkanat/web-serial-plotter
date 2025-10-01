@@ -3,6 +3,7 @@ export interface PlotSeries {
   id: number
   name: string
   color: string
+  visible: boolean
 }
 
 /**
