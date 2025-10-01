@@ -25,7 +25,29 @@ export default function ConsoleInput({ onSend, disabled = false }: ConsoleInputP
     setHistoryIndex(-1)
   }, [input, disabled, onSend, history])
 
+  const sendControlChar = useCallback((char: 'C' | 'D') => {
+    if (disabled) return
+    
+    // Send control character (Ctrl-C = 0x03, Ctrl-D = 0x04)
+    const code = char === 'C' ? 3 : 4
+    const controlChar = String.fromCharCode(code)
+    onSend(controlChar)
+  }, [disabled, onSend])
+
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+    // Handle Ctrl-C and Ctrl-D
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault()
+        sendControlChar('C')
+        return
+      } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault()
+        sendControlChar('D')
+        return
+      }
+    }
+    
     if (e.key === 'Enter') {
       e.preventDefault()
       handleSend()
@@ -51,7 +73,7 @@ export default function ConsoleInput({ onSend, disabled = false }: ConsoleInputP
         }
       }
     }
-  }, [handleSend, history, historyIndex])
+  }, [handleSend, history, historyIndex, sendControlChar])
 
   return (
     <div className="flex gap-2 p-3 border-t border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
@@ -61,10 +83,26 @@ export default function ConsoleInput({ onSend, disabled = false }: ConsoleInputP
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={disabled ? "Not connected" : "Type command and press Enter..."}
+        placeholder={disabled ? "Not connected" : "Type command and press Enter (Ctrl-C, Ctrl-D supported)..."}
         disabled={disabled}
         className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-neutral-700 rounded-md bg-white dark:bg-neutral-900 text-gray-900 dark:text-neutral-100 placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
       />
+      <button
+        onClick={() => sendControlChar('C')}
+        disabled={disabled}
+        title="Send Ctrl-C (interrupt)"
+        className="px-3 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-600 dark:disabled:hover:bg-orange-500"
+      >
+        ^C
+      </button>
+      <button
+        onClick={() => sendControlChar('D')}
+        disabled={disabled}
+        title="Send Ctrl-D (EOF)"
+        className="px-3 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-600 dark:disabled:hover:bg-purple-500"
+      >
+        ^D
+      </button>
       <button
         onClick={handleSend}
         disabled={!input.trim() || disabled}
