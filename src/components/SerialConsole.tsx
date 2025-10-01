@@ -17,11 +17,20 @@ export default function SerialConsole({ isConnected, onSendMessage }: SerialCons
 
   const handleSendMessage = useCallback(async (message: string) => {
     try {
-      // Add newline to message if not present
-      const messageToSend = message.endsWith('\n') ? message : message + '\n'
+      // Check if message is a control character (ASCII 0-31)
+      const isControlChar = message.length === 1 && message.charCodeAt(0) < 32
       
-      // Log outgoing message
-      addOutgoing(message)
+      // Add newline to message if not present (unless it's a control character)
+      const messageToSend = isControlChar ? message : (message.endsWith('\n') ? message : message + '\n')
+      
+      // Log outgoing message with readable name for control chars
+      if (isControlChar) {
+        const code = message.charCodeAt(0)
+        const ctrlName = code === 3 ? '^C (ETX)' : code === 4 ? '^D (EOT)' : `^${String.fromCharCode(64 + code)}`
+        addOutgoing(ctrlName)
+      } else {
+        addOutgoing(message)
+      }
       
       // Send via serial
       await onSendMessage(messageToSend)
