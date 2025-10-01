@@ -3,7 +3,7 @@ import { render } from '@testing-library/react'
 import { PlotCanvas } from '../PlotCanvas'
 
 function makeSnapshot(values: number[]) {
-  const series = [{ id: 0, name: 'S1', color: '#fff' }]
+  const series = [{ id: 0, name: 'S1', color: '#fff', visible: true }]
   const data = new Float32Array(values)
   return {
     series,

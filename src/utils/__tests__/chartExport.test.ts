@@ -4,8 +4,8 @@ import type { ViewPortData } from '../../store/RingStore'
 
 const mockViewPortData: ViewPortData = {
   series: [
-    { id: 0, name: 'Temperature', color: '#ff0000' },
-    { id: 1, name: 'Humidity', color: '#00ff00' }
+    { id: 0, name: 'Temperature', color: '#ff0000', visible: true },
+    { id: 1, name: 'Humidity', color: '#00ff00', visible: true }
   ],
   getSeriesData: (id: number) => {
     if (id === 0) return new Float32Array([23.5, 24.0, 24.5, NaN])
@@ -22,8 +22,8 @@ const mockViewPortData: ViewPortData = {
 
 const mockStore = {
   getSeries: () => [
-    { id: 0, name: 'Temperature', color: '#ff0000' },
-    { id: 1, name: 'Humidity', color: '#00ff00' }
+    { id: 0, name: 'Temperature', color: '#ff0000', visible: true },
+    { id: 1, name: 'Humidity', color: '#00ff00', visible: true }
   ],
   getCapacity: () => 5,
   writeIndex: 4,

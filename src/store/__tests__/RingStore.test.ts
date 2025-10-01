@@ -37,9 +37,9 @@ describe('RingStore', () => {
       // Create 3 series by appending data
       store.append([1, 2, 3])
       const series = store.getSeries()
-      expect(series[0]).toEqual({ id: 0, name: 'S1', color: '#60a5fa' })
-      expect(series[1]).toEqual({ id: 1, name: 'S2', color: '#f472b6' })
-      expect(series[2]).toEqual({ id: 2, name: 'S3', color: '#34d399' })
+      expect(series[0]).toEqual({ id: 0, name: 'S1', color: '#60a5fa', visible: true })
+      expect(series[1]).toEqual({ id: 1, name: 'S2', color: '#f472b6', visible: true })
+      expect(series[2]).toEqual({ id: 2, name: 'S3', color: '#34d399', visible: true })
     })
 
     it('should set new series', () => {
@@ -67,6 +67,22 @@ describe('RingStore', () => {
       const originalName = store.getSeries()[0].name
       store.renameSeries(999, 'InvalidID')
       expect(store.getSeries()[0].name).toBe(originalName)
+    })
+
+    it('should toggle series visibility', () => {
+      store.append([1, 2, 3]) // Create series first
+      expect(store.getSeries()[0].visible).toBe(true)
+      store.toggleSeriesVisibility(0)
+      expect(store.getSeries()[0].visible).toBe(false)
+      store.toggleSeriesVisibility(0)
+      expect(store.getSeries()[0].visible).toBe(true)
+    })
+
+    it('should handle invalid series ID for toggle visibility', () => {
+      store.append([1, 2, 3]) // Create series first
+      const originalVisibility = store.getSeries()[0].visible
+      store.toggleSeriesVisibility(999)
+      expect(store.getSeries()[0].visible).toBe(originalVisibility)
     })
   })
 

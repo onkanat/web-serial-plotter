@@ -5,8 +5,8 @@ import SeriesPanel from '../SeriesPanel'
 const renameSeries = vi.fn()
 const setSeriesColor = vi.fn()
 const mockSeries = [
-  { id: 0, name: 'S1', color: '#111111' },
-  { id: 1, name: 'S2', color: '#222222' },
+  { id: 0, name: 'S1', color: '#111111', visible: true },
+  { id: 1, name: 'S2', color: '#222222', visible: true },
 ]
 
 vi.mock('../../store/dataStore', () => ({

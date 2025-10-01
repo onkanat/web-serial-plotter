@@ -1,8 +1,10 @@
 import type { PlotSnapshot } from '../types/plot'
 import { useRef, useState } from 'react'
 import Button from './ui/Button'
+import Checkbox from './ui/Checkbox'
 import { CameraIcon } from '@heroicons/react/24/outline'
 import * as htmlToImage from 'html-to-image'
+import { useDataStore } from '../store/dataStore'
 
 interface Props {
   snapshot: PlotSnapshot
@@ -72,16 +74,26 @@ function computeStats(values: Float32Array, numBins = 24): SeriesStats {
   return { min, max, mean, median, stddev, bins, count: n, mode }
 }
 
-function StatsCard({ name, color, data, id }: { name: string, color: string, data: Float32Array, id: number }) {
+function StatsCard({ name, color, data, id, visible }: { name: string, color: string, data: Float32Array, id: number, visible: boolean }) {
   const histRef = useRef<HTMLDivElement | null>(null)
   const [tooltip, setTooltip] = useState<{ visible: boolean, x: number, y: number, text: string }>({ visible: false, x: 0, y: 0, text: '' })
-  const st = computeStats(data)
+  const store = useDataStore()
+  // Only compute stats if the series is visible
+  const st = visible ? computeStats(data) : { min: NaN, max: NaN, mean: NaN, median: NaN, stddev: NaN, bins: new Array(24).fill(0), count: 0, mode: NaN }
   const maxBin = Math.max(1, ...st.bins)
   const fmt = (x: number) => (Number.isFinite(x) ? x.toFixed(3) : '—')
   return (
-    <div className="rounded-md p-2" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }} id={`stat-card-${id}`}>
+    <div className="rounded-md p-2 transition-opacity" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', opacity: visible ? 1 : 0.4 }} id={`stat-card-${id}`}>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium" style={{ color }}>{name}</div>
+        <div className="flex items-center gap-2">
+          <Checkbox 
+            checked={visible} 
+            onChange={() => store.toggleSeriesVisibility(id)}
+            title="Show/hide trace"
+            aria-label="Toggle trace visibility"
+          />
+          <div className="text-sm font-medium" style={{ color }}>{name}</div>
+        </div>
         <div className="flex items-center gap-2">
           <div className="text-[10px] opacity-60">n={st.count}</div>
           <Button size="sm" aria-label="Save PNG" title="Save PNG" onClick={async () => {
@@ -161,7 +173,7 @@ export function StatsPanel({ snapshot }: Props) {
   return (
     <div className="mt-2 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
       {snapshot.series.map((s) => (
-        <StatsCard key={s.id} id={s.id} name={s.name} color={s.color} data={snapshot.getSeriesData(s.id)} />
+        <StatsCard key={s.id} id={s.id} name={s.name} color={s.color} visible={s.visible} data={snapshot.getSeriesData(s.id)} />
       ))}
     </div>
   )

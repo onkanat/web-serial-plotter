@@ -28,7 +28,7 @@ export function Legend() {
     <div className="pointer-events-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur rounded-md border border-gray-300 dark:border-neutral-700 p-2 max-w-xs">
       <div className="text-xs font-semibold mb-1">Legend</div>
       <div className="flex flex-col gap-1">
-        {series.map((s) => (
+        {series.filter(s => s.visible).map((s) => (
           <button key={s.id} className="flex items-center gap-2 text-left text-xs hover:opacity-90 cursor-pointer" onClick={() => setEditingId(s.id)}>
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: s.color }} />
             <span className="truncate">{s.name}</span>

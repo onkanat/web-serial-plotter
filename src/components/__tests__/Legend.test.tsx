@@ -6,8 +6,8 @@ import Legend from '../Legend'
 const renameSeries = vi.fn()
 const setSeriesColor = vi.fn()
 const mockSeries = [
-  { id: 0, name: 'Channel A', color: '#ff0000' },
-  { id: 1, name: 'Channel B', color: '#00ff00' },
+  { id: 0, name: 'Channel A', color: '#ff0000', visible: true },
+  { id: 1, name: 'Channel B', color: '#00ff00', visible: true },
 ]
 
 vi.mock('../../store/dataStore', () => ({

@@ -2,9 +2,10 @@ import type { PlotSnapshot } from '../../types/plot'
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { StatsPanel } from '../StatsPanel'
+import { DataStoreProvider } from '../../store/dataStore'
 
 function makeSnapshot(values: number[]) {
-  const series = [{ id: 0, name: 'S1', color: '#fff' }]
+  const series = [{ id: 0, name: 'S1', color: '#fff', visible: true }]
   const data = new Float32Array(values)
   return {
     series,
@@ -20,7 +21,11 @@ function makeSnapshot(values: number[]) {
 describe('StatsPanel', () => {
   it('renders stats values for a single series', () => {
     const snap = makeSnapshot([1, 2, 3, 4]) as unknown as PlotSnapshot
-    render(<StatsPanel snapshot={snap} />)
+    render(
+      <DataStoreProvider>
+        <StatsPanel snapshot={snap} />
+      </DataStoreProvider>
+    )
     expect(screen.getByText('S1')).toBeInTheDocument()
     expect(screen.getByText(/min:/i)).toBeInTheDocument()
     expect(screen.getByText(/max:/i)).toBeInTheDocument()
